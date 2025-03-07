@@ -94,3 +94,6 @@ unsafe-fixes = true
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["mermaidmd2pdf"]
