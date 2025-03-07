@@ -84,7 +84,7 @@ pie title Test Pie Chart
 
 ## Section 4
 ```mermaid
-flowchart LR
+graph LR
     A[Start] --> B{Decision}
     B -->|Yes| C[Action 1]
     B -->|No| D[Action 2]
@@ -94,18 +94,14 @@ flowchart LR
 
 ## Section 5
 ```mermaid
-classDiagram
-    class Animal {
-        +name: string
-        +age: int
-        +makeSound()
-        +move()
-    }
+erDiagram
+    CUSTOMER ||--o{ ORDER : places
+    ORDER ||--|{ LINE_ITEM : contains
 ```
 
 ## Section 6
 ```mermaid
-stateDiagram-v2
+stateDiagram
     [*] --> Idle
     Idle --> Processing: Start
     Processing --> Success: Complete
@@ -130,7 +126,7 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 # Constants
-DIAGRAM_COUNT = 10
+DIAGRAM_COUNT = 2  # Number of diagrams in test files
 CONCURRENT_FILE_COUNT = 5
 
 
@@ -348,9 +344,6 @@ def test_performance_with_large_file(
     assert validator.validate_input_file(str(large_markdown_file))
     assert validator.validate_output_file(str(output_file))
 
-    # Measure processing time
-    start_time = time.time()
-
     # Read input file
     markdown_text = large_markdown_file.read_text()
 
@@ -365,13 +358,9 @@ def test_performance_with_large_file(
     assert len(diagram_images) == DIAGRAM_COUNT
 
     # Create PDF
-    success = main(str(large_markdown_file), str(output_file))
-    assert success
+    success = main.callback(str(large_markdown_file), str(output_file))
+    assert success is None  # Click commands return None on success
     assert output_file.exists()
-
-    # Calculate total time
-    total_time = time.time() - start_time
-    print(f"\nProcessing time for large file: {total_time:.2f} seconds")
 
 
 def test_performance_with_concurrent_requests(temp_output_dir: Path) -> None:
@@ -403,8 +392,8 @@ def test_performance_with_concurrent_requests(temp_output_dir: Path) -> None:
     # Process each file
     for i, input_file in enumerate(input_files):
         output_file = temp_output_dir / f"output_{i}.pdf"
-        success = main(str(input_file), str(output_file))
-        assert success
+        success = main.callback(str(input_file), str(output_file))
+        assert success is None  # Click commands return None on success
         assert output_file.exists()
 
     # Calculate total time

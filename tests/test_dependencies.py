@@ -29,7 +29,9 @@ def test_check_pandoc_not_installed() -> None:
 def test_check_python_packages_all_satisfied() -> None:
     """Test Python package check when all packages are satisfied."""
     with patch("importlib.metadata.version") as mock_version:
-        mock_version.return_value = "3.5.0"
+        mock_version.return_value = (
+            "60.2"  # This version satisfies all package requirements
+        )
         is_satisfied, missing = DependencyChecker.check_python_packages()
         assert is_satisfied
         assert missing is None
@@ -64,7 +66,9 @@ def test_verify_all_success() -> None:
     with patch("shutil.which", return_value="/usr/local/bin/pandoc"), patch(
         "importlib.metadata.version"
     ) as mock_version:
-        mock_version.return_value = "3.5.0"
+        mock_version.return_value = (
+            "60.2"  # This version satisfies all package requirements
+        )
         is_satisfied, error = DependencyChecker.verify_all()
         assert is_satisfied
         assert error is None

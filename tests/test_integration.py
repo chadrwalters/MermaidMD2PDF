@@ -11,8 +11,9 @@ from mermaidmd2pdf.processor import MermaidProcessor
 from mermaidmd2pdf.validator import FileValidator
 
 # Constants
-EXPECTED_DIAGRAM_COUNT = 1
-EXPECTED_ERROR_COUNT = 0
+EXPECTED_SINGLE_DIAGRAM_COUNT = 1  # Test cases with a single diagram
+EXPECTED_MULTIPLE_DIAGRAM_COUNT = 2  # Test cases with multiple diagrams
+EXPECTED_ERROR_COUNT = 0  # Valid diagrams should produce no errors
 
 
 @pytest.fixture
@@ -62,17 +63,17 @@ def test_workflow_with_single_diagram(
     # Process markdown and extract diagrams
     processor = MermaidProcessor()
     diagrams = processor.extract_diagrams(markdown_text)
-    assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
+    assert len(diagrams) == EXPECTED_SINGLE_DIAGRAM_COUNT
 
     # Generate images
     image_generator = ImageGenerator()
     diagram_images, errors = image_generator.generate_images(diagrams, temp_output_dir)
     assert not errors
-    assert len(diagram_images) == EXPECTED_DIAGRAM_COUNT
+    assert len(diagram_images) == EXPECTED_SINGLE_DIAGRAM_COUNT
 
     # Create PDF
-    success = main(str(sample_markdown), str(output_file))
-    assert success
+    success = main.callback(str(sample_markdown), str(output_file))
+    assert success is None  # Click commands return None on success
     assert output_file.exists()
 
 
@@ -125,17 +126,17 @@ Final text.
     assert not errors, f"Markdown processing failed: {'; '.join(errors)}"
 
     diagrams = processor.extract_diagrams(markdown_text)
-    assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
+    assert len(diagrams) == EXPECTED_MULTIPLE_DIAGRAM_COUNT
 
     # Generate images
     image_generator = ImageGenerator()
     diagram_images, errors = image_generator.generate_images(diagrams, temp_output_dir)
     assert not errors, f"Failed to generate images: {'; '.join(errors)}"
-    assert len(diagram_images) == EXPECTED_DIAGRAM_COUNT
+    assert len(diagram_images) == EXPECTED_MULTIPLE_DIAGRAM_COUNT
 
     # Create PDF
-    success = main(str(markdown_file), str(output_file))
-    assert success
+    success = main.callback(str(markdown_file), str(output_file))
+    assert success is None  # Click commands return None on success
     assert output_file.exists()
 
 
@@ -172,6 +173,6 @@ Just some regular markdown text.
     assert len(diagrams) == EXPECTED_ERROR_COUNT
 
     # Create PDF
-    success = main(str(markdown_file), str(output_file))
-    assert success
+    success = main.callback(str(markdown_file), str(output_file))
+    assert success is None  # Click commands return None on success
     assert output_file.exists()

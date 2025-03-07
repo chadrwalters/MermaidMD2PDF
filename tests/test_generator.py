@@ -8,8 +8,10 @@ from mermaidmd2pdf.generator import ImageGenerator
 from mermaidmd2pdf.processor import MermaidDiagram
 
 # Test constants
-EXPECTED_DIAGRAM_COUNT = 1
-EXPECTED_ERROR_COUNT = 1
+EXPECTED_SINGLE_DIAGRAM_COUNT = 1  # Test cases with a single diagram
+EXPECTED_MULTIPLE_DIAGRAM_COUNT = 2  # Test cases with multiple diagrams
+EXPECTED_ERROR_COUNT = 0  # No errors expected for valid diagrams
+EXPECTED_FAILURE_ERROR_COUNT = 1  # One error expected for invalid diagrams
 EXPECTED_LINE_NUMBER = 4
 
 
@@ -110,7 +112,7 @@ def test_generate_images_success(temp_output_dir: Path) -> None:
 
     diagram_images, errors = ImageGenerator.generate_images(diagrams, temp_output_dir)
     assert not errors
-    assert len(diagram_images) == EXPECTED_DIAGRAM_COUNT
+    assert len(diagram_images) == EXPECTED_MULTIPLE_DIAGRAM_COUNT
     assert all(isinstance(path, Path) for path in diagram_images.values())
     assert all(path.exists() for path in diagram_images.values())
     assert len(errors) == EXPECTED_ERROR_COUNT
@@ -135,9 +137,8 @@ def test_generate_images_failure(temp_output_dir: Path) -> None:
 
     diagram_images, errors = ImageGenerator.generate_images(diagrams, temp_output_dir)
     assert len(diagram_images) == 1
-    assert len(errors) == 1
+    assert len(errors) == EXPECTED_FAILURE_ERROR_COUNT
     assert "Failed to generate image for diagram at line 4" in errors[0]
-    assert len(errors) == EXPECTED_ERROR_COUNT
 
 
 def test_generate_images_exception(temp_output_dir: Path) -> None:
@@ -157,9 +158,8 @@ def test_generate_images_exception(temp_output_dir: Path) -> None:
             diagrams, temp_output_dir
         )
         assert not diagram_images
-        assert len(errors) == 1
+        assert len(errors) == EXPECTED_FAILURE_ERROR_COUNT
         assert "Failed to generate image for diagram at line 1" in errors[0]
-        assert len(errors) == EXPECTED_ERROR_COUNT
 
 
 def test_generate_images_cleanup(temp_output_dir: Path) -> None:

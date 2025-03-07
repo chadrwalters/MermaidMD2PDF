@@ -7,8 +7,10 @@ from mermaidmd2pdf.processor import MermaidDiagram, MermaidProcessor
 
 # Test constants
 EXPECTED_LINE_NUMBER = 4
-EXPECTED_DIAGRAM_COUNT = 1
-EXPECTED_ERROR_COUNT = 1
+EXPECTED_SINGLE_DIAGRAM_COUNT = 1  # Test cases with a single diagram
+EXPECTED_MULTIPLE_DIAGRAM_COUNT = 2  # Test cases with multiple diagrams
+EXPECTED_ERROR_COUNT = 0  # No errors expected for valid diagrams
+EXPECTED_INVALID_ERROR_COUNT = 1  # One error expected for invalid diagrams
 
 
 def test_extract_diagrams_fenced() -> None:
@@ -27,7 +29,7 @@ def test_extract_diagrams_fenced() -> None:
     )
 
     diagrams = MermaidProcessor.extract_diagrams(markdown)
-    assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
+    assert len(diagrams) == EXPECTED_SINGLE_DIAGRAM_COUNT
     assert diagrams[0].content == "graph TD\nA[Start] --> B[End]"
     assert diagrams[0].start_line == EXPECTED_LINE_NUMBER
     assert "```mermaid" in diagrams[0].original_text
@@ -49,7 +51,7 @@ def test_extract_diagrams_inline() -> None:
     )
 
     diagrams = MermaidProcessor.extract_diagrams(markdown)
-    assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
+    assert len(diagrams) == EXPECTED_SINGLE_DIAGRAM_COUNT
     assert diagrams[0].content == "sequenceDiagram\nA->>B: Hello"
     assert diagrams[0].start_line == EXPECTED_LINE_NUMBER
     assert "<mermaid>" in diagrams[0].original_text
@@ -76,7 +78,7 @@ def test_extract_diagrams_multiple() -> None:
     )
 
     diagrams = MermaidProcessor.extract_diagrams(markdown)
-    assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
+    assert len(diagrams) == EXPECTED_MULTIPLE_DIAGRAM_COUNT
     assert "graph TD" in diagrams[0].content
     assert "sequenceDiagram" in diagrams[1].content
 
@@ -152,7 +154,7 @@ def test_process_markdown_invalid() -> None:
 
     processed_text, errors = MermaidProcessor.process_markdown(markdown)
     assert processed_text == markdown
-    assert len(errors) == EXPECTED_ERROR_COUNT
+    assert len(errors) == EXPECTED_INVALID_ERROR_COUNT
 
 
 def test_process_markdown_success(temp_dir: Path) -> None:

@@ -104,6 +104,8 @@ class PDFGenerator:
 
         except subprocess.CalledProcessError as e:
             return False, f"Failed to run Pandoc: {e!s}"
+        except FileNotFoundError as e:
+            return False, f"Failed to run Pandoc: {e!s}"
         except Exception as e:
             return False, f"Error generating PDF: {e!s}"
         finally:

@@ -2,7 +2,7 @@
 
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import ClassVar, List, Optional, Set, Tuple
 
 
 @dataclass(frozen=True)
@@ -31,13 +31,22 @@ class MermaidDiagram:
 
 
 class MermaidProcessor:
-    """Processes Markdown text to extract and handle Mermaid diagrams."""
+    """Process Markdown files to extract and validate Mermaid diagrams."""
 
-    MERMAID_FENCE_PATTERN = re.compile(
-        r"^```mermaid\s*\n(.*?)\n```", re.MULTILINE | re.DOTALL
-    )
+    MERMAID_FENCE_PATTERN = re.compile(r"```mermaid\n(.*?)\n```", re.DOTALL)
     MERMAID_INLINE_PATTERN = re.compile(r"<mermaid>(.*?)</mermaid>", re.DOTALL)
     MIN_DIAGRAM_LINES = 2  # Type + at least one element
+    VALID_DIAGRAM_TYPES: ClassVar[Set[str]] = {
+        "graph",
+        "sequencediagram",
+        "classdiagram",
+        "statediagram",
+        "erdiagram",
+        "flowchart",
+        "gantt",
+        "pie",
+        "journey",
+    }
 
     @staticmethod
     def extract_diagrams(markdown_text: str) -> List[MermaidDiagram]:
@@ -102,23 +111,14 @@ class MermaidProcessor:
             return False, "Diagram must contain at least one element"
 
         # Basic syntax validation
-        first_line = content.split("\n")[0].strip().lower()
-        valid_types = {
-            "graph",
-            "sequencediagram",
-            "classDiagram",
-            "stateDiagram",
-            "erDiagram",
-            "flowchart",
-            "gantt",
-            "pie",
-            "journey",
-        }
-
-        if not any(first_line.startswith(t) for t in valid_types):
-            return (
-                False,
-                f"Invalid diagram type. Must be one of: {', '.join(valid_types)}",
+        content.split("\n")[0].strip().lower()
+        if not any(
+            diagram_type.lower() in content.lower()
+            for diagram_type in MermaidProcessor.VALID_DIAGRAM_TYPES
+        ):
+            return False, (
+                f"Invalid diagram type at line {diagram.start_line}. "
+                f"Must be one of: {', '.join(MermaidProcessor.VALID_DIAGRAM_TYPES)}"
             )
 
         return True, None

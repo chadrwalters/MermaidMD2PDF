@@ -17,10 +17,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install black isort mypy ruff
+          uv pip install black isort mypy ruff
       - name: Run linters
         run: |
           black --check .
@@ -45,10 +48,13 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-xetex
           npm install -g @mermaid-js/mermaid-cli
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install .[dev]
+          uv pip install -e ".[dev]"
       - name: Run tests
         run: |
           pytest --cov=mermaidmd2pdf tests/
@@ -68,10 +74,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Install build dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install build twine
+          uv pip install build twine
       - name: Build package
         run: python -m build
       - name: Publish to PyPI
@@ -90,10 +99,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install mkdocs-material mkdocstrings[python] pymdown-extensions
+          uv pip install mkdocs-material mkdocstrings[python] pymdown-extensions
       - name: Build and deploy documentation
         run: |
           mkdocs gh-deploy --force
