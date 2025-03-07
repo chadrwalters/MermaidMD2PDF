@@ -37,10 +37,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/MermaidMD2PDF"
-Documentation = "https://github.com/yourusername/MermaidMD2PDF#readme"
-Repository = "https://github.com/yourusername/MermaidMD2PDF.git"
-Issues = "https://github.com/yourusername/MermaidMD2PDF/issues"
+Homepage = "https://github.com/chadrwalters/MermaidMD2PDF"
+Documentation = "https://github.com/chadrwalters/MermaidMD2PDF#readme"
+Repository = "https://github.com/chadrwalters/MermaidMD2PDF.git"
+Issues = "https://github.com/chadrwalters/MermaidMD2PDF/issues"
 
 [project.optional-dependencies]
 dev = [
