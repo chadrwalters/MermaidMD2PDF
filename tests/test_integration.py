@@ -3,6 +3,7 @@
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Generator, Optional
 
 import pytest
 from mermaidmd2pdf.dependencies import DependencyChecker
@@ -15,7 +16,7 @@ from mermaidmd2pdf.validator import FileValidator
 EXPECTED_SMALL_DIAGRAM_COUNT = 2
 EXPECTED_LARGE_DIAGRAM_COUNT = 3
 
-def check_dependencies():
+def check_dependencies() -> None:
     """Check if all required external dependencies are available."""
     # Check for mmdc (Mermaid CLI)
     if shutil.which("mmdc") is None:
@@ -34,20 +35,20 @@ def check_dependencies():
 
 
 @pytest.fixture(autouse=True)
-def ensure_dependencies():
+def ensure_dependencies() -> None:
     """Ensure all required dependencies are available before running tests."""
     check_dependencies()
 
 
 @pytest.fixture
-def temp_dir():
+def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for testing."""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield Path(temp_dir)
 
 
 @pytest.fixture
-def sample_markdown():
+def sample_markdown() -> str:
     """Create a sample markdown file with a Mermaid diagram."""
     return """# Test Document
 
@@ -62,7 +63,7 @@ graph TD
 And some more text after the diagram."""
 
 
-def test_complete_workflow(temp_dir, sample_markdown):
+def test_complete_workflow(temp_dir: Path, sample_markdown: str) -> None:
     # Set up input and output files
     input_file = temp_dir / "test.md"
     output_file = temp_dir / "test.pdf"
@@ -106,7 +107,7 @@ def test_complete_workflow(temp_dir, sample_markdown):
     assert output_file.stat().st_size > 0
 
 
-def test_workflow_with_multiple_diagrams(temp_dir):
+def test_workflow_with_multiple_diagrams(temp_dir: Path) -> None:
     markdown_content = """# Multiple Diagrams
 
 First diagram:
@@ -161,7 +162,7 @@ sequenceDiagram
     assert output_file.stat().st_size > 0
 
 
-def test_workflow_error_handling(temp_dir):
+def test_workflow_error_handling(temp_dir: Path) -> None:
     # Test with invalid Mermaid syntax
     invalid_markdown = """# Invalid Diagram
 
@@ -187,7 +188,7 @@ graph TD
     assert error is not None, "Expected error message for invalid diagram"
 
 
-def test_real_world_document(temp_dir):
+def test_real_world_document(temp_dir: Path) -> None:
     """Test PDF generation with a real-world document containing multiple diagrams and complex markdown."""
     markdown_content = """# Technical Design: System Architecture
 
@@ -329,7 +330,7 @@ graph LR
     assert output_file.stat().st_size > 0
 
 
-def test_basic_workflow(temp_dir):
+def test_basic_workflow(temp_dir: Path) -> None:
     """Test basic workflow with a simple Markdown file."""
     # Create input file
     input_file = temp_dir / "test.md"
@@ -367,7 +368,7 @@ sequenceDiagram
         assert path.exists()
 
 
-def test_invalid_diagram(temp_dir):
+def test_invalid_diagram(temp_dir: Path) -> None:
     """Test handling of invalid Mermaid diagrams."""
     invalid_markdown = """# Invalid Test
 
@@ -388,7 +389,7 @@ invalid diagram
     assert "Invalid diagram type" in error
 
 
-def test_real_world_document(temp_dir):
+def test_real_world_document(temp_dir: Path):
     """Test PDF generation with a real-world document containing multiple diagrams."""
     markdown_content = """# Technical Design: System Architecture
 

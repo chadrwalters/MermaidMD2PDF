@@ -1,8 +1,9 @@
 """Tests for the Mermaid processor component."""
 
 import textwrap
-import pytest
+from typing import List
 
+import pytest
 from mermaidmd2pdf.processor import MermaidDiagram, MermaidProcessor
 
 # Test constants
@@ -10,7 +11,7 @@ EXPECTED_LINE_NUMBER = 4
 EXPECTED_DIAGRAM_COUNT = 2
 
 
-def test_extract_diagrams_fenced():
+def test_extract_diagrams_fenced() -> None:
     """Test extraction of fenced Mermaid diagrams."""
     markdown = textwrap.dedent(
         """
@@ -32,7 +33,7 @@ def test_extract_diagrams_fenced():
     assert "```mermaid" in diagrams[0].original_text
 
 
-def test_extract_diagrams_inline():
+def test_extract_diagrams_inline() -> None:
     """Test extraction of inline Mermaid diagrams."""
     markdown = textwrap.dedent(
         """
@@ -54,7 +55,7 @@ def test_extract_diagrams_inline():
     assert "<mermaid>" in diagrams[0].original_text
 
 
-def test_extract_diagrams_multiple():
+def test_extract_diagrams_multiple() -> None:
     """Test extraction of multiple Mermaid diagrams."""
     markdown = textwrap.dedent(
         """
@@ -80,7 +81,7 @@ def test_extract_diagrams_multiple():
     assert "sequenceDiagram" in diagrams[1].content
 
 
-def test_validate_diagram_valid():
+def test_validate_diagram_valid() -> None:
     """Test validation of valid Mermaid diagrams."""
     valid_diagrams = [
         "graph TD\nA[Start] --> B[End]",
@@ -102,7 +103,7 @@ def test_validate_diagram_valid():
         assert error is None
 
 
-def test_validate_diagram_invalid():
+def test_validate_diagram_invalid() -> None:
     """Test validation of invalid Mermaid diagrams."""
     invalid_diagrams = [
         "",  # Empty
@@ -119,7 +120,7 @@ def test_validate_diagram_invalid():
         assert error is not None
 
 
-def test_process_markdown_valid():
+def test_process_markdown_valid() -> None:
     """Test processing of Markdown with valid diagrams."""
     markdown = textwrap.dedent(
         """
@@ -137,7 +138,7 @@ def test_process_markdown_valid():
     assert not errors
 
 
-def test_process_markdown_invalid():
+def test_process_markdown_invalid() -> None:
     """Test processing of Markdown with invalid diagrams."""
     markdown = textwrap.dedent(
         """

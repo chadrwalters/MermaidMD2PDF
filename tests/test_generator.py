@@ -2,6 +2,7 @@
 
 import subprocess
 from pathlib import Path
+from typing import Any, Dict
 from unittest.mock import ANY, patch
 
 import pytest
@@ -32,7 +33,7 @@ def sample_diagram() -> MermaidDiagram:
     )
 
 
-def test_create_mermaid_config():
+def test_create_mermaid_config() -> None:
     """Test creation of Mermaid configuration."""
     config = ImageGenerator._create_mermaid_config()
     assert config["theme"] == "default"
@@ -40,7 +41,7 @@ def test_create_mermaid_config():
     assert "fontSize" in config["themeVariables"]
 
 
-def test_generate_image_success(temp_output_dir: Path, sample_diagram: MermaidDiagram):
+def test_generate_image_success(temp_output_dir: Path, sample_diagram: MermaidDiagram) -> None:
     """Test successful image generation."""
     with patch("subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
@@ -63,7 +64,7 @@ def test_generate_image_success(temp_output_dir: Path, sample_diagram: MermaidDi
         )
 
 
-def test_generate_image_failure(temp_output_dir: Path, sample_diagram: MermaidDiagram):
+def test_generate_image_failure(temp_output_dir: Path, sample_diagram: MermaidDiagram) -> None:
     """Test image generation failure."""
     with patch("subprocess.run") as mock_run:
         mock_run.return_value.returncode = 1
@@ -78,9 +79,7 @@ def test_generate_image_failure(temp_output_dir: Path, sample_diagram: MermaidDi
         assert image_path is None
 
 
-def test_generate_image_exception(
-    temp_output_dir: Path, sample_diagram: MermaidDiagram
-):
+def test_generate_image_exception(temp_output_dir: Path, sample_diagram: MermaidDiagram) -> None:
     """Test image generation with exception."""
     with patch("subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.CalledProcessError(1, "mmdc")
@@ -94,7 +93,7 @@ def test_generate_image_exception(
         assert image_path is None
 
 
-def test_generate_images_all_success(temp_output_dir: Path):
+def test_generate_images_all_success(temp_output_dir: Path) -> None:
     """Test generation of multiple images with all successes."""
     diagrams = [
         MermaidDiagram("graph TD\nA-->B", 1, 2, ""),
@@ -113,7 +112,7 @@ def test_generate_images_all_success(temp_output_dir: Path):
         assert mock_run.call_count == EXPECTED_DIAGRAM_COUNT
 
 
-def test_generate_images_mixed_results(temp_output_dir: Path):
+def test_generate_images_mixed_results(temp_output_dir: Path) -> None:
     """Test generation of multiple images with mixed results."""
     valid_diagram = MermaidDiagram("graph TD\nA-->B", 1, 2, "")
     invalid_diagram = MermaidDiagram("invalid", 3, 4, "")
@@ -143,7 +142,7 @@ def test_generate_images_mixed_results(temp_output_dir: Path):
         assert invalid_diagram not in diagram_images
 
 
-def test_generate_images_creates_output_dir(tmp_path: Path):
+def test_generate_images_creates_output_dir(tmp_path: Path) -> None:
     """Test that generate_images creates the output directory if it doesn't exist."""
     output_dir = tmp_path / "nonexistent"
     diagrams = [MermaidDiagram("graph TD\nA-->B", 1, 2, "")]

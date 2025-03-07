@@ -2,7 +2,7 @@ import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Generator
+from typing import Generator, List, Optional, Tuple
 
 import psutil
 import pytest
@@ -137,7 +137,7 @@ def get_memory_usage() -> float:
 def measure_execution_time(func):
     """Decorator to measure execution time of a function."""
 
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> Tuple[Path, float, float]:
         start_time = time.time()
         start_memory = get_memory_usage()
         result = func(*args, **kwargs)
@@ -195,7 +195,7 @@ def process_document(input_path: Path, output_path: Path) -> Path:
     return output_path
 
 
-def test_small_document_performance(temp_dir: Path):
+def test_small_document_performance(temp_dir: Path) -> None:
     """Test performance with a small document."""
     input_path = temp_dir / "small.md"
     output_path = temp_dir / "small.pdf"
@@ -212,7 +212,7 @@ def test_small_document_performance(temp_dir: Path):
     assert output_path.exists()
 
 
-def test_medium_document_performance(temp_dir: Path):
+def test_medium_document_performance(temp_dir: Path) -> None:
     """Test performance with a medium-sized document."""
     input_path = temp_dir / "medium.md"
     output_path = temp_dir / "medium.pdf"
@@ -227,7 +227,7 @@ def test_medium_document_performance(temp_dir: Path):
     assert output_path.exists()
 
 
-def test_large_document_performance(temp_dir: Path):
+def test_large_document_performance(temp_dir: Path) -> None:
     """Test performance with a large document."""
     input_path = temp_dir / "large.md"
     output_path = temp_dir / "large.pdf"
@@ -242,7 +242,7 @@ def test_large_document_performance(temp_dir: Path):
     assert output_path.exists()
 
 
-def test_concurrent_processing(temp_dir: Path):
+def test_concurrent_processing(temp_dir: Path) -> None:
     """Test concurrent processing of multiple documents."""
     documents = [
         ("small.md", SMALL_DOC),
@@ -273,7 +273,7 @@ def test_concurrent_processing(temp_dir: Path):
     assert all(output_path.exists() for output_path, _, _ in results)
 
 
-def test_memory_cleanup(temp_dir: Path):
+def test_memory_cleanup(temp_dir: Path) -> None:
     """Test memory cleanup after processing."""
     input_path = temp_dir / "cleanup.md"
     output_path = temp_dir / "cleanup.pdf"
