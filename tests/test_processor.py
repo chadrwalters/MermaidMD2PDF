@@ -1,9 +1,7 @@
 """Tests for the Mermaid processor component."""
 
 import textwrap
-from typing import List
 
-import pytest
 from mermaidmd2pdf.processor import MermaidDiagram, MermaidProcessor
 
 # Test constants

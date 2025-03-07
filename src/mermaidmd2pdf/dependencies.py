@@ -75,7 +75,7 @@ class DependencyChecker:
 
         # Check Python packages
         packages_ok, missing_packages = DependencyChecker.check_python_packages()
-        if not packages_ok:
+        if not packages_ok and missing_packages is not None:
             return False, (
                 "Missing required Python packages. Please install:\n"
                 f"uv pip install {' '.join(missing_packages)}"

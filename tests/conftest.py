@@ -1,48 +1,70 @@
-"""Test configuration and fixtures for MermaidMD2PDF."""
+"""Common test fixtures and utilities."""
 
-import subprocess
+import shutil
 import tempfile
 from pathlib import Path
+from typing import Generator
 
 import pytest
+from mermaidmd2pdf.processor import MermaidDiagram
 
 
-@pytest.fixture
-def temp_dir():
-    """Create a temporary directory for test files."""
-    with tempfile.TemporaryDirectory() as tmpdir:
-        yield Path(tmpdir)
-
-
-@pytest.fixture(scope="session", autouse=True)
-def check_dependencies():
-    """Check if required external dependencies are installed."""
-    dependencies = ["pandoc", "mmdc"]
-    missing = []
-
-    for dep in dependencies:
-        try:
-            subprocess.run(
-                [dep, "--version"],
-                capture_output=True,
-                check=True,
-            )
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            missing.append(dep)
-
-    if missing:
+def check_dependencies() -> None:
+    """Check if all required external dependencies are available."""
+    # Check for mmdc (Mermaid CLI)
+    if shutil.which("mmdc") is None:
         pytest.skip(
-            f"Missing required dependencies: {', '.join(missing)}. "
-            "Please install them before running tests."
+            "Mermaid CLI (mmdc) not found. Please install with: "
+            "npm install -g @mermaid-js/mermaid-cli"
+        )
+
+    # Check for pandoc
+    if shutil.which("pandoc") is None:
+        pytest.skip(
+            "Pandoc not found. Please install with: "
+            "brew install pandoc (macOS) or "
+            "apt-get install pandoc (Linux)"
         )
 
 
-@pytest.fixture
-def sample_markdown():
-    """Create a sample markdown file with a Mermaid diagram."""
-    content = """# Test Document
+@pytest.fixture(autouse=True)
+def ensure_dependencies() -> None:
+    """Ensure all required dependencies are available before running tests."""
+    check_dependencies()
 
-Here's a simple Mermaid diagram:
+
+@pytest.fixture
+def temp_dir() -> Generator[Path, None, None]:
+    """Create a temporary directory for testing."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        yield Path(temp_dir)
+
+
+@pytest.fixture
+def temp_output_dir(tmp_path: Path) -> Path:
+    """Create a temporary output directory."""
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    return output_dir
+
+
+@pytest.fixture
+def sample_diagram() -> MermaidDiagram:
+    """Create a sample Mermaid diagram for testing."""
+    return MermaidDiagram(
+        content="graph TD\nA[Start] --> B[End]",
+        start_line=1,
+        end_line=3,
+        original_text="```mermaid\ngraph TD\nA[Start] --> B[End]\n```",
+    )
+
+
+@pytest.fixture
+def sample_markdown() -> str:
+    """Create a sample markdown file with a Mermaid diagram."""
+    return """# Test Document
+
+This is a test document with a Mermaid diagram:
 
 ```mermaid
 graph TD
@@ -50,12 +72,11 @@ graph TD
     B --> C[End]
 ```
 
-And some more text."""
-    return content
+And some more text after the diagram."""
 
 
 @pytest.fixture
-def sample_markdown_file(temp_dir, sample_markdown):
+def sample_markdown_file(temp_dir: Path, sample_markdown: str) -> Path:
     """Create a temporary markdown file with sample content."""
     input_file = temp_dir / "test.md"
     input_file.write_text(sample_markdown)

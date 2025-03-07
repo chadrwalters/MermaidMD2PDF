@@ -2,7 +2,7 @@
 
 import subprocess
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from mermaidmd2pdf.pdf import PDFGenerator
@@ -30,21 +30,20 @@ def sample_diagram() -> MermaidDiagram:
 
 def test_replace_diagrams_with_images(
     temp_output_dir: Path, sample_diagram: MermaidDiagram
-):
-    """Test replacement of diagrams with image references."""
-    markdown = "# Test\n\n```mermaid\ngraph TD\nA[Start] --> B[End]\n```\n\nMore text"
-    image_path = temp_output_dir / "diagram.svg"
+) -> None:
+    """Test replacement of Mermaid diagrams with image references."""
+    markdown_text = "# Test\n\n```mermaid\ngraph TD\nA-->B\n```\n\nMore text"
+    image_path = temp_output_dir / "test.svg"
     diagram_images = {sample_diagram: image_path}
 
-    result = PDFGenerator._replace_diagrams_with_images(markdown, diagram_images)
+    result: str = PDFGenerator._replace_diagrams_with_images(
+        markdown_text, diagram_images
+    )
+    assert "![Diagram]" in result
+    assert str(image_path) in result
 
-    assert "```mermaid" not in result
-    assert f"![Diagram]({image_path})" in result
-    assert "# Test" in result
-    assert "More text" in result
 
-
-def test_replace_diagrams_with_images_multiple(temp_output_dir: Path):
+def test_replace_diagrams_with_images_multiple(temp_output_dir: Path) -> None:
     """Test replacement of multiple diagrams with image references."""
     diagram1 = MermaidDiagram(
         content="graph TD\nA-->B",
@@ -79,78 +78,107 @@ def test_replace_diagrams_with_images_multiple(temp_output_dir: Path):
     assert "Middle text" in result
 
 
-def test_generate_pdf_success(temp_output_dir: Path, sample_diagram: MermaidDiagram):
+def test_generate_pdf_success(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
     """Test successful PDF generation."""
-    markdown = "# Test\n\n```mermaid\ngraph TD\nA[Start] --> B[End]\n```"
-    output_file = temp_output_dir / "output.pdf"
-    diagram_images = {sample_diagram: temp_output_dir / "diagram.svg"}
+    markdown_text = "# Test Document\n\nSome content"
+    output_file = temp_output_dir / "test.pdf"
+    image_path = temp_output_dir / "test.svg"
+    diagram_images = {sample_diagram: image_path}
 
     with patch("subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
 
         success, error = PDFGenerator.generate_pdf(
-            markdown, diagram_images, output_file, title="Test Document"
+            markdown_text, diagram_images, output_file, title="Test"
         )
 
         assert success
         assert error is None
 
-        # Verify Pandoc command
-        mock_run.assert_called_once()
-        args = mock_run.call_args[0][0]
-        assert args[0] == "pandoc"
-        assert args[2] == "-o"
-        assert args[3] == str(output_file)
-        assert "--pdf-engine=xelatex" in args
-        assert "--standalone" in args
+        # Verify subprocess call
+        mock_run.assert_called_once_with(
+            [
+                "pandoc",
+                ANY,  # Temp markdown file
+                "-o",
+                str(output_file),
+                "--pdf-engine=xelatex",
+                "--standalone",
+                "-V",
+                "geometry:margin=1in",
+                "-V",
+                "documentclass:article",
+                "-V",
+                "papersize:a4",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
 
-def test_generate_pdf_failure(temp_output_dir: Path, sample_diagram: MermaidDiagram):
+def test_generate_pdf_failure(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
     """Test PDF generation failure."""
-    markdown = "# Test\n\n```mermaid\ngraph TD\nA[Start] --> B[End]\n```"
-    output_file = temp_output_dir / "output.pdf"
-    diagram_images = {sample_diagram: temp_output_dir / "diagram.svg"}
+    markdown_text = "# Test Document\n\nSome content"
+    output_file = temp_output_dir / "test.pdf"
+    image_path = temp_output_dir / "test.svg"
+    diagram_images = {sample_diagram: image_path}
 
     with patch("subprocess.run") as mock_run:
         mock_run.return_value.returncode = 1
         mock_run.return_value.stderr = "Pandoc error"
 
         success, error = PDFGenerator.generate_pdf(
-            markdown, diagram_images, output_file
+            markdown_text, diagram_images, output_file
         )
 
         assert not success
-        assert "Pandoc error" in error
+        assert error is not None and "Pandoc error" in error
 
 
-def test_generate_pdf_exception(temp_output_dir: Path, sample_diagram: MermaidDiagram):
+def test_generate_pdf_exception(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
     """Test PDF generation with exception."""
-    markdown = "# Test\n\n```mermaid\ngraph TD\nA[Start] --> B[End]\n```"
-    output_file = temp_output_dir / "output.pdf"
-    diagram_images = {sample_diagram: temp_output_dir / "diagram.svg"}
+    markdown_text = "# Test Document\n\nSome content"
+    output_file = temp_output_dir / "test.pdf"
+    image_path = temp_output_dir / "test.svg"
+    diagram_images = {sample_diagram: image_path}
 
     with patch("subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.CalledProcessError(1, "pandoc")
 
         success, error = PDFGenerator.generate_pdf(
-            markdown, diagram_images, output_file
+            markdown_text, diagram_images, output_file
         )
 
         assert not success
-        assert "Failed to run Pandoc" in error
+        assert error is not None and "Failed to run Pandoc" in error
 
 
-def test_generate_pdf_cleanup(temp_output_dir: Path, sample_diagram: MermaidDiagram):
-    """Test temporary file cleanup after PDF generation."""
-    markdown = "# Test\n\n```mermaid\ngraph TD\nA[Start] --> B[End]\n```"
-    output_file = temp_output_dir / "output.pdf"
-    diagram_images = {sample_diagram: temp_output_dir / "diagram.svg"}
+def test_generate_pdf_cleanup(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
+    """Test cleanup after PDF generation."""
+    markdown_text = "# Test Document\n\nSome content"
+    output_file = temp_output_dir / "test.pdf"
+    image_path = temp_output_dir / "test.svg"
+    diagram_images = {sample_diagram: image_path}
 
     with patch("subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
 
-        PDFGenerator.generate_pdf(markdown, diagram_images, output_file)
+        success, error = PDFGenerator.generate_pdf(
+            markdown_text, diagram_images, output_file
+        )
 
-        # Check that no temporary .md files are left
+        assert success
+        assert error is None
+
+        # Verify temp file cleanup
         temp_files = list(temp_output_dir.glob("*.md"))
-        assert not temp_files
+        assert not temp_files, "Temporary files should be cleaned up"

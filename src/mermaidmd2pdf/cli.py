@@ -1,8 +1,7 @@
 """Command-line interface for MermaidMD2PDF."""
 
-import sys
-import tempfile
 from pathlib import Path
+from typing import Optional
 
 import click
 
@@ -16,74 +15,65 @@ from mermaidmd2pdf.validator import FileValidator
 @click.command()
 @click.argument("input_file", type=click.Path(exists=True, dir_okay=False))
 @click.argument("output_file", type=click.Path(dir_okay=False))
-@click.option("--title", help="Optional document title")
-def main(input_file: str, output_file: str, title: str | None = None) -> None:
-    """Convert Markdown files with Mermaid diagrams to PDF.
+@click.option(
+    "--title",
+    help="Optional title for the PDF document",
+    type=str,
+    default=None,
+)
+def main(input_file: str, output_file: str, title: Optional[str] = None) -> None:
+    """Convert a Markdown file with Mermaid diagrams to PDF.
 
     Args:
-        input_file: Path to input Markdown file
-        output_file: Path to output PDF file
-        title: Optional document title
+        input_file: Path to the input Markdown file
+        output_file: Path to the output PDF file
+        title: Optional title for the PDF document
     """
     # Check dependencies
-    is_satisfied, error = DependencyChecker.verify_all()
+    checker = DependencyChecker()
+    is_satisfied, error = checker.verify_all()
     if not is_satisfied:
-        click.echo(f"Error: {error}", err=True)
-        sys.exit(1)
+        raise click.ClickException(error or "Unknown dependency error")
 
-    # Validate input file
-    is_valid, error = FileValidator.validate_input_file(input_file)
+    # Validate input and output files
+    validator = FileValidator()
+    is_valid, error = validator.validate_input_file(str(input_file))
     if not is_valid:
-        click.echo(f"Error: {error}", err=True)
-        sys.exit(1)
+        raise click.ClickException(error or "Invalid input file")
 
-    # Validate output file
-    is_valid, error = FileValidator.validate_output_file(output_file)
+    is_valid, error = validator.validate_output_file(str(output_file))
     if not is_valid:
-        click.echo(f"Error: {error}", err=True)
-        sys.exit(1)
+        raise click.ClickException(error or "Invalid output file")
 
-    # Read input file
-    try:
-        markdown_text = Path(input_file).read_text()
-    except Exception as e:
-        click.echo(f"Error reading input file: {e!s}", err=True)
-        sys.exit(1)
+    # Read and process input file
+    input_path = Path(input_file)
+    with open(input_path, encoding="utf-8") as f:
+        content = f.read()
 
-    # Process Markdown and extract diagrams
-    markdown_text, errors = MermaidProcessor.process_markdown(markdown_text)
+    # Process markdown and extract diagrams
+    processor = MermaidProcessor()
+    processed_text, errors = processor.process_markdown(content)
     if errors:
-        click.echo("Found invalid Mermaid diagrams:", err=True)
-        for error in errors:
-            click.echo(f"  - {error}", err=True)
-        sys.exit(1)
+        raise click.ClickException(f"Markdown processing failed: {'; '.join(errors)}")
 
-    # Create temporary directory for diagram images
-    with tempfile.TemporaryDirectory() as temp_dir:
-        temp_path = Path(temp_dir)
+    diagrams = processor.extract_diagrams(content)
 
-        # Extract and validate diagrams
-        diagrams = MermaidProcessor.extract_diagrams(markdown_text)
-        if not diagrams:
-            click.echo("No Mermaid diagrams found in input file")
+    # Create temporary directory for images
+    image_generator = ImageGenerator()
+    diagram_images, errors = image_generator.generate_images(
+        diagrams, input_path.parent
+    )
+    if errors:
+        raise click.ClickException(f"Failed to generate images: {'; '.join(errors)}")
 
-        # Generate images for diagrams
-        diagram_images, errors = ImageGenerator.generate_images(diagrams, temp_path)
-        if errors:
-            click.echo("Failed to generate some diagram images:", err=True)
-            for error in errors:
-                click.echo(f"  - {error}", err=True)
-            sys.exit(1)
-
-        # Generate PDF
-        success, error = PDFGenerator.generate_pdf(
-            markdown_text, diagram_images, Path(output_file), title
-        )
-        if not success:
-            click.echo(f"Error generating PDF: {error}", err=True)
-            sys.exit(1)
-
-    click.echo(f"Successfully converted {input_file} to {output_file}")
+    # Generate PDF
+    output_path = Path(output_file)
+    pdf_generator = PDFGenerator()
+    success, error = pdf_generator.generate_pdf(
+        processed_text, diagram_images, output_path, title=title
+    )
+    if not success:
+        raise click.ClickException(error or "Failed to generate PDF")
 
 
 if __name__ == "__main__":

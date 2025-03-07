@@ -42,9 +42,6 @@ repos:
       - id: mypy
         exclude: ^\.history/
         additional_dependencies:
-          - types-all
           - types-psutil
-          - types-setuptools
           - types-click
           - types-markdown
-          - types-packaging

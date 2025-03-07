@@ -1,11 +1,15 @@
+"""Performance tests for MermaidMD2PDF."""
+
 import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Generator, List, Optional, Tuple
+from typing import Any, Callable, Generator, List, Tuple, TypeVar
 
 import psutil
 import pytest
+from mermaidmd2pdf.cli import main
+from mermaidmd2pdf.dependencies import DependencyChecker
 from mermaidmd2pdf.generator import ImageGenerator
 from mermaidmd2pdf.pdf import PDFGenerator
 from mermaidmd2pdf.processor import MermaidProcessor
@@ -120,6 +124,14 @@ LARGE_DOC_MEMORY_LIMIT = 500.0  # MB
 BATCH_TIME_LIMIT = 15.0  # seconds
 CLEANUP_MEMORY_LIMIT = 100.0  # MB
 
+# Type variables for the decorator
+T = TypeVar("T")
+R = TypeVar("R")
+
+# Constants
+DIAGRAM_COUNT = 10
+CONCURRENT_FILE_COUNT = 5
+
 
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
@@ -131,13 +143,15 @@ def temp_dir() -> Generator[Path, None, None]:
 def get_memory_usage() -> float:
     """Get current memory usage in MB."""
     process = psutil.Process()
-    return process.memory_info().rss / 1024 / 1024
+    return float(process.memory_info().rss / 1024 / 1024)
 
 
-def measure_execution_time(func):
+def measure_execution_time(
+    func: Callable[..., T]
+) -> Callable[..., Tuple[T, float, float]]:
     """Decorator to measure execution time of a function."""
 
-    def wrapper(*args, **kwargs) -> Tuple[Path, float, float]:
+    def wrapper(*args: Any, **kwargs: Any) -> Tuple[T, float, float]:
         start_time = time.time()
         start_memory = get_memory_usage()
         result = func(*args, **kwargs)
@@ -254,11 +268,10 @@ def test_concurrent_processing(temp_dir: Path) -> None:
     for filename, content in documents:
         (temp_dir / filename).write_text(content)
 
-    def process_single_doc(filename: str) -> tuple[Path, float, float]:
+    def process_single_doc(filename: str) -> Tuple[Path, float, float]:
         input_path = temp_dir / filename
         output_path = temp_dir / f"{filename.replace('.md', '.pdf')}"
-        result, execution_time, memory_usage = process_document(input_path, output_path)
-        return result, execution_time, memory_usage
+        return process_document(input_path, output_path)
 
     # Process documents concurrently
     start_time = time.time()
@@ -267,9 +280,7 @@ def test_concurrent_processing(temp_dir: Path) -> None:
     total_time = time.time() - start_time
 
     # Performance assertions
-    assert (
-        total_time < BATCH_TIME_LIMIT
-    )  # Should process all documents in under 15 seconds
+    assert total_time < BATCH_TIME_LIMIT
     assert all(output_path.exists() for output_path, _, _ in results)
 
 
@@ -291,3 +302,110 @@ def test_memory_cleanup(temp_dir: Path) -> None:
     # Check memory usage after cleanup
     current_memory = get_memory_usage()
     assert current_memory < CLEANUP_MEMORY_LIMIT  # Should clean up to under 100MB
+
+
+@pytest.fixture
+def temp_output_dir(tmp_path: Path) -> Path:
+    """Create a temporary output directory."""
+    output_dir = tmp_path / "output"
+    output_dir.mkdir()
+    return output_dir
+
+
+@pytest.fixture
+def large_markdown_file(temp_output_dir: Path) -> Path:
+    """Create a large markdown file with multiple diagrams."""
+    markdown_file = temp_output_dir / "large.md"
+    content = ["# Large Document\n\n"]
+
+    # Add multiple diagrams
+    for i in range(DIAGRAM_COUNT):
+        content.append(f"\n## Section {i+1}\n\n")
+        content.append("```mermaid\n")
+        content.append("graph TD\n")
+        content.append(f"A{i}[Start] --> B{i}[Process]\n")
+        content.append(f"B{i} --> C{i}[End]\n")
+        content.append("```\n\n")
+        content.append(f"Some text for section {i+1}\n\n")
+
+    markdown_file.write_text("".join(content))
+    return markdown_file
+
+
+def test_performance_with_large_file(
+    temp_output_dir: Path, large_markdown_file: Path
+) -> None:
+    """Test performance with a large markdown file containing multiple diagrams."""
+    # Check dependencies
+    checker = DependencyChecker()
+    deps_ok, error = checker.verify_all()
+    assert deps_ok, f"Dependencies not satisfied: {error}"
+
+    # Validate input and output files
+    validator = FileValidator()
+    output_file = temp_output_dir / "output.pdf"
+    assert validator.validate_input_file(str(large_markdown_file))
+    assert validator.validate_output_file(str(output_file))
+
+    # Measure processing time
+    start_time = time.time()
+
+    # Read input file
+    markdown_text = large_markdown_file.read_text()
+
+    # Process markdown and extract diagrams
+    processor = MermaidProcessor()
+    diagrams = processor.extract_diagrams(markdown_text)
+    assert len(diagrams) == DIAGRAM_COUNT
+
+    # Generate images
+    image_generator = ImageGenerator()
+    diagram_images = image_generator.generate_images(diagrams, temp_output_dir)
+    assert len(diagram_images) == DIAGRAM_COUNT
+
+    # Create PDF
+    success = main(str(large_markdown_file), str(output_file))
+    assert success
+    assert output_file.exists()
+
+    # Calculate total time
+    total_time = time.time() - start_time
+    print(f"\nProcessing time for large file: {total_time:.2f} seconds")
+
+
+def test_performance_with_concurrent_requests(temp_output_dir: Path) -> None:
+    """Test performance with concurrent processing of multiple files."""
+    # Create multiple input files
+    input_files: List[Path] = []
+    for i in range(CONCURRENT_FILE_COUNT):
+        markdown_file = temp_output_dir / f"test_{i}.md"
+        content = [
+            f"# Test Document {i}\n\n",
+            "```mermaid\n",
+            "graph TD\n",
+            f"A{i}[Start] --> B{i}[Process]\n",
+            f"B{i} --> C{i}[End]\n",
+            "```\n\n",
+            f"Some text for document {i}\n",
+        ]
+        markdown_file.write_text("".join(content))
+        input_files.append(markdown_file)
+
+    # Check dependencies
+    checker = DependencyChecker()
+    deps_ok, error = checker.verify_all()
+    assert deps_ok, f"Dependencies not satisfied: {error}"
+
+    # Measure processing time
+    start_time = time.time()
+
+    # Process each file
+    for i, input_file in enumerate(input_files):
+        output_file = temp_output_dir / f"output_{i}.pdf"
+        success = main(str(input_file), str(output_file))
+        assert success
+        assert output_file.exists()
+
+    # Calculate total time
+    total_time = time.time() - start_time
+    print(f"\nProcessing time for concurrent files: {total_time:.2f} seconds")

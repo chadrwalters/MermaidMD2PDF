@@ -5,7 +5,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from mermaidmd2pdf.processor import MermaidDiagram
 
@@ -14,7 +14,7 @@ class ImageGenerator:
     """Generates images from Mermaid diagrams."""
 
     @staticmethod
-    def _create_mermaid_config() -> Dict[str, any]:
+    def _create_mermaid_config() -> Dict[str, Any]:
         """Create default Mermaid configuration.
 
         Returns:

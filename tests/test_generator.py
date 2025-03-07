@@ -2,7 +2,7 @@
 
 import subprocess
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, List
 from unittest.mock import ANY, patch
 
 import pytest
@@ -41,7 +41,9 @@ def test_create_mermaid_config() -> None:
     assert "fontSize" in config["themeVariables"]
 
 
-def test_generate_image_success(temp_output_dir: Path, sample_diagram: MermaidDiagram) -> None:
+def test_generate_image_success(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
     """Test successful image generation."""
     with patch("subprocess.run") as mock_run:
         mock_run.return_value.returncode = 0
@@ -64,7 +66,9 @@ def test_generate_image_success(temp_output_dir: Path, sample_diagram: MermaidDi
         )
 
 
-def test_generate_image_failure(temp_output_dir: Path, sample_diagram: MermaidDiagram) -> None:
+def test_generate_image_failure(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
     """Test image generation failure."""
     with patch("subprocess.run") as mock_run:
         mock_run.return_value.returncode = 1
@@ -75,11 +79,13 @@ def test_generate_image_failure(temp_output_dir: Path, sample_diagram: MermaidDi
         )
 
         assert not success
-        assert "Mermaid CLI error" in error
+        assert error is not None and "Mermaid CLI error" in error
         assert image_path is None
 
 
-def test_generate_image_exception(temp_output_dir: Path, sample_diagram: MermaidDiagram) -> None:
+def test_generate_image_exception(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
     """Test image generation with exception."""
     with patch("subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.CalledProcessError(1, "mmdc")
@@ -89,7 +95,7 @@ def test_generate_image_exception(temp_output_dir: Path, sample_diagram: Mermaid
         )
 
         assert not success
-        assert "Failed to run Mermaid CLI" in error
+        assert error is not None and "Failed to run Mermaid CLI" in error
         assert image_path is None
 
 
@@ -118,9 +124,11 @@ def test_generate_images_mixed_results(temp_output_dir: Path) -> None:
     invalid_diagram = MermaidDiagram("invalid", 3, 4, "")
     diagrams = [valid_diagram, invalid_diagram]
 
-    def mock_run_side_effect(args, **kwargs):
+    def mock_run_side_effect(
+        args: List[str], **kwargs: Any
+    ) -> subprocess.CompletedProcess:
         # Create a mock result
-        result = subprocess.CompletedProcess(args, 0)
+        result: subprocess.CompletedProcess = subprocess.CompletedProcess(args, 0)
         result.stderr = ""
 
         # Check if this is the invalid diagram by comparing file paths
@@ -154,3 +162,97 @@ def test_generate_images_creates_output_dir(tmp_path: Path) -> None:
 
         assert output_dir.exists()
         assert output_dir.is_dir()
+
+
+def test_generate_images_success(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
+    """Test successful image generation."""
+    generator = ImageGenerator()
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+
+        diagram_images, errors = generator.generate_images(
+            [sample_diagram], temp_output_dir
+        )
+
+        assert len(diagram_images) == 1
+        assert not errors
+        image_path = next(iter(diagram_images.values()))
+        assert image_path.exists()
+        assert image_path.suffix == ".svg"
+
+        # Verify subprocess call
+        mock_run.assert_called_once_with(
+            [
+                "mmdc",
+                "-i",
+                ANY,  # Temp file path
+                "-o",
+                ANY,  # Output file path
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+
+def test_generate_images_failure(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
+    """Test image generation failure."""
+    generator = ImageGenerator()
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 1
+        mock_run.return_value.stderr = "Mermaid CLI error"
+
+        diagram_images, errors = generator.generate_images(
+            [sample_diagram], temp_output_dir
+        )
+
+        assert len(diagram_images) == 0
+        assert len(errors) == 1
+        assert "Mermaid CLI error" in errors[0]
+
+
+def test_generate_images_exception(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
+    """Test image generation with exception."""
+    generator = ImageGenerator()
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.side_effect = subprocess.CalledProcessError(1, "mmdc")
+
+        diagram_images, errors = generator.generate_images(
+            [sample_diagram], temp_output_dir
+        )
+
+        assert len(diagram_images) == 0
+        assert len(errors) == 1
+        assert "Failed to run Mermaid CLI" in errors[0]
+
+
+def test_generate_images_cleanup(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+) -> None:
+    """Test cleanup after image generation."""
+    generator = ImageGenerator()
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+
+        diagram_images, errors = generator.generate_images(
+            [sample_diagram], temp_output_dir
+        )
+
+        assert len(diagram_images) == 1
+        assert not errors
+        image_path = next(iter(diagram_images.values()))
+        assert image_path.exists()
+
+        # Verify temp file cleanup
+        temp_files = list(temp_output_dir.glob("*.mmd"))
+        assert not temp_files, "Temporary files should be cleaned up"
