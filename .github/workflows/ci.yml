@@ -44,11 +44,13 @@ jobs:
         run: |
           uv venv
           uv pip install -e ".[dev]"
+        working-directory: ${{ github.workspace }}
 
       - name: Run linters
         run: |
           uv run ruff check .
           uv run mypy src/
+        working-directory: ${{ github.workspace }}
 
   test:
     needs: [lint]
@@ -89,15 +91,25 @@ jobs:
         run: |
           uv venv
           uv pip install -e ".[dev]"
-          uv pip install pytest-cov  # Ensure pytest-cov is installed
+          uv pip install pytest-cov
+        working-directory: ${{ github.workspace }}
+
+      - name: Check Python environment
+        run: |
+          python --version
+          which python
+          echo "PYTHONPATH: $PYTHONPATH"
+          python -c "import mermaidmd2pdf; print(mermaidmd2pdf.__file__)"
+        working-directory: ${{ github.workspace }}
 
       - name: Run tests with coverage
         run: |
-          uv run pytest \
+          uv run pytest -vl \
             --cov=mermaidmd2pdf \
             --cov-report=xml \
             --cov-report=term \
             tests/
+        working-directory: ${{ github.workspace }}
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -126,10 +138,12 @@ jobs:
         run: |
           uv venv
           uv pip install build twine
+        working-directory: ${{ github.workspace }}
 
       - name: Build package
         run: |
           uv run python -m build
+        working-directory: ${{ github.workspace }}
 
       - name: Publish to PyPI
         env:
@@ -137,6 +151,7 @@ jobs:
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
           uv run twine upload dist/*
+        working-directory: ${{ github.workspace }}
 
   docs:
     needs: [lint, test]
