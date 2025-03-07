@@ -1,12 +1,15 @@
 import os
 import tempfile
 from pathlib import Path
+
 import pytest
-from mermaidmd2pdf.validator import FileValidator
+
 from mermaidmd2pdf.dependencies import DependencyChecker
-from mermaidmd2pdf.processor import MermaidProcessor
 from mermaidmd2pdf.generator import ImageGenerator
 from mermaidmd2pdf.pdf import PDFGenerator
+from mermaidmd2pdf.processor import MermaidProcessor
+from mermaidmd2pdf.validator import FileValidator
+
 
 @pytest.fixture
 def temp_dir():

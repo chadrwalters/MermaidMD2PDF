@@ -1,11 +1,10 @@
 """Tests for the PDF generator component."""
-import os
+
 import subprocess
 from pathlib import Path
-from unittest.mock import ANY, patch
+from unittest.mock import patch
 
 import pytest
-
 from mermaidmd2pdf.pdf import PDFGenerator
 from mermaidmd2pdf.processor import MermaidDiagram
 
@@ -29,7 +28,9 @@ def sample_diagram() -> MermaidDiagram:
     )
 
 
-def test_replace_diagrams_with_images(temp_output_dir: Path, sample_diagram: MermaidDiagram):
+def test_replace_diagrams_with_images(
+    temp_output_dir: Path, sample_diagram: MermaidDiagram
+):
     """Test replacement of diagrams with image references."""
     markdown = "# Test\n\n```mermaid\ngraph TD\nA[Start] --> B[End]\n```\n\nMore text"
     image_path = temp_output_dir / "diagram.svg"
@@ -114,7 +115,9 @@ def test_generate_pdf_failure(temp_output_dir: Path, sample_diagram: MermaidDiag
         mock_run.return_value.returncode = 1
         mock_run.return_value.stderr = "Pandoc error"
 
-        success, error = PDFGenerator.generate_pdf(markdown, diagram_images, output_file)
+        success, error = PDFGenerator.generate_pdf(
+            markdown, diagram_images, output_file
+        )
 
         assert not success
         assert "Pandoc error" in error
@@ -129,7 +132,9 @@ def test_generate_pdf_exception(temp_output_dir: Path, sample_diagram: MermaidDi
     with patch("subprocess.run") as mock_run:
         mock_run.side_effect = subprocess.CalledProcessError(1, "pandoc")
 
-        success, error = PDFGenerator.generate_pdf(markdown, diagram_images, output_file)
+        success, error = PDFGenerator.generate_pdf(
+            markdown, diagram_images, output_file
+        )
 
         assert not success
         assert "Failed to run Pandoc" in error

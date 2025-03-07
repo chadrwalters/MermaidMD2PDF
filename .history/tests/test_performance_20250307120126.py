@@ -1,18 +1,19 @@
 import os
+import shutil
+import tempfile
 import time
-import psutil
-import pytest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Generator
-import tempfile
-import shutil
-from concurrent.futures import ThreadPoolExecutor
 
-from mermaidmd2pdf.validator import FileValidator
-from mermaidmd2pdf.processor import MermaidProcessor
-from mermaidmd2pdf.pdf import PDFGenerator
+import psutil
+import pytest
+
 from mermaidmd2pdf.dependencies import DependencyChecker
 from mermaidmd2pdf.generator import ImageGenerator
+from mermaidmd2pdf.pdf import PDFGenerator
+from mermaidmd2pdf.processor import MermaidProcessor
+from mermaidmd2pdf.validator import FileValidator
 
 # Test data
 SMALL_DOC = """# Small Test Document

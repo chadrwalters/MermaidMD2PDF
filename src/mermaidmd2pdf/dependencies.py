@@ -1,8 +1,8 @@
 """Dependency checker component for MermaidMD2PDF."""
+
 import importlib.metadata
 import shutil
-import subprocess
-from typing import List, Optional, Tuple
+from typing import ClassVar, Dict, List, Optional, Tuple
 
 from packaging.requirements import Requirement
 from packaging.version import Version
@@ -11,7 +11,7 @@ from packaging.version import Version
 class DependencyChecker:
     """Checks system and Python package dependencies."""
 
-    REQUIRED_PACKAGES = {
+    REQUIRED_PACKAGES: ClassVar[Dict[str, str]] = {
         "markdown": ">=3.5.0",
         "weasyprint": ">=60.2",
         "click": ">=8.0.0",

@@ -1,14 +1,15 @@
 """File validation component for MermaidMD2PDF."""
+
 import os
 import pathlib
-from typing import Optional, Tuple
+from typing import ClassVar, Optional, Set, Tuple
 
 
 class FileValidator:
     """Validates input and output files for security and correctness."""
 
-    ALLOWED_INPUT_EXTENSIONS = {".md", ".markdown"}
-    ALLOWED_OUTPUT_EXTENSIONS = {".pdf"}
+    ALLOWED_INPUT_EXTENSIONS: ClassVar[Set[str]] = {".md", ".markdown"}
+    ALLOWED_OUTPUT_EXTENSIONS: ClassVar[Set[str]] = {".pdf"}
 
     @staticmethod
     def validate_input_file(file_path: str) -> Tuple[bool, Optional[str]]:
@@ -37,7 +38,8 @@ class FileValidator:
             if path.suffix.lower() not in FileValidator.ALLOWED_INPUT_EXTENSIONS:
                 return False, (
                     f"Invalid input file extension: {path.suffix}. "
-                    f"Allowed extensions: {', '.join(FileValidator.ALLOWED_INPUT_EXTENSIONS)}"
+                    "Allowed extensions: "
+                    f"{', '.join(sorted(FileValidator.ALLOWED_INPUT_EXTENSIONS))}"
                 )
 
             # Check read permissions
@@ -48,7 +50,7 @@ class FileValidator:
             return True, None
 
         except (OSError, ValueError) as e:
-            return False, f"Error validating input file: {str(e)}"
+            return False, f"Error validating input file: {e!s}"
 
     @staticmethod
     def validate_output_file(file_path: str) -> Tuple[bool, Optional[str]]:
@@ -69,7 +71,8 @@ class FileValidator:
             if path.suffix.lower() not in FileValidator.ALLOWED_OUTPUT_EXTENSIONS:
                 return False, (
                     f"Invalid output file extension: {path.suffix}. "
-                    f"Allowed extensions: {', '.join(FileValidator.ALLOWED_OUTPUT_EXTENSIONS)}"
+                    "Allowed extensions: "
+                    f"{', '.join(sorted(FileValidator.ALLOWED_OUTPUT_EXTENSIONS))}"
                 )
 
             # Check if parent directory exists and is writable
@@ -81,10 +84,13 @@ class FileValidator:
 
             # If file exists, check if it's writable
             if path.exists() and not os.access(path, os.W_OK):
-                return False, f"No write permission for existing output file: {file_path}"
+                return (
+                    False,
+                    f"No write permission for existing output file: {file_path}",
+                )
 
             # Successful validation
             return True, None
 
         except (OSError, ValueError) as e:
-            return False, f"Error validating output file: {str(e)}"
+            return False, f"Error validating output file: {e!s}"

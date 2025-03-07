@@ -7,4 +7,4 @@ from mermaidmd2pdf.validator import validate_input
 
 __version__ = "0.1.0"
 
-__all__ = ["convert_to_pdf", "process_markdown", "validate_input", "main"]
+__all__ = ["convert_to_pdf", "main", "process_markdown", "validate_input"]

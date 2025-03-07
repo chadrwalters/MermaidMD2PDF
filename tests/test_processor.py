@@ -1,9 +1,13 @@
 """Tests for the Mermaid processor component."""
-import textwrap
 
+import textwrap
 import pytest
 
 from mermaidmd2pdf.processor import MermaidDiagram, MermaidProcessor
+
+# Test constants
+EXPECTED_LINE_NUMBER = 4
+EXPECTED_DIAGRAM_COUNT = 2
 
 
 def test_extract_diagrams_fenced():
@@ -24,7 +28,7 @@ def test_extract_diagrams_fenced():
     diagrams = MermaidProcessor.extract_diagrams(markdown)
     assert len(diagrams) == 1
     assert diagrams[0].content == "graph TD\nA[Start] --> B[End]"
-    assert diagrams[0].start_line == 4
+    assert diagrams[0].start_line == EXPECTED_LINE_NUMBER
     assert "```mermaid" in diagrams[0].original_text
 
 
@@ -46,7 +50,7 @@ def test_extract_diagrams_inline():
     diagrams = MermaidProcessor.extract_diagrams(markdown)
     assert len(diagrams) == 1
     assert diagrams[0].content == "sequenceDiagram\nA->>B: Hello"
-    assert diagrams[0].start_line == 4
+    assert diagrams[0].start_line == EXPECTED_LINE_NUMBER
     assert "<mermaid>" in diagrams[0].original_text
 
 
@@ -71,7 +75,7 @@ def test_extract_diagrams_multiple():
     )
 
     diagrams = MermaidProcessor.extract_diagrams(markdown)
-    assert len(diagrams) == 2
+    assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
     assert "graph TD" in diagrams[0].content
     assert "sequenceDiagram" in diagrams[1].content
 
@@ -84,13 +88,15 @@ def test_validate_diagram_valid():
         "classDiagram\nClass01 <|-- Class02",
         "stateDiagram\ns1 --> s2",
         "erDiagram\nCUSTOMER ||--o{ ORDER",
-        "pie\ntitle Pie Chart\n\"Dogs\" : 386",
+        'pie\ntitle Pie Chart\n"Dogs" : 386',
         "gantt\ntitle Timeline\nsection Section\nTask1: 2024-01-01, 7d",
         "flowchart LR\nA-->B",
     ]
 
     for content in valid_diagrams:
-        diagram = MermaidDiagram(content=content, start_line=1, end_line=2, original_text="")
+        diagram = MermaidDiagram(
+            content=content, start_line=1, end_line=2, original_text=""
+        )
         is_valid, error = MermaidProcessor.validate_diagram(diagram)
         assert is_valid
         assert error is None
@@ -105,7 +111,9 @@ def test_validate_diagram_invalid():
     ]
 
     for content in invalid_diagrams:
-        diagram = MermaidDiagram(content=content, start_line=1, end_line=2, original_text="")
+        diagram = MermaidDiagram(
+            content=content, start_line=1, end_line=2, original_text=""
+        )
         is_valid, error = MermaidProcessor.validate_diagram(diagram)
         assert not is_valid
         assert error is not None

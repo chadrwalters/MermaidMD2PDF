@@ -1,14 +1,19 @@
 """Integration tests for MermaidMD2PDF."""
-import os
-import tempfile
+
 import shutil
+import tempfile
 from pathlib import Path
+
 import pytest
-from mermaidmd2pdf.validator import FileValidator
 from mermaidmd2pdf.dependencies import DependencyChecker
-from mermaidmd2pdf.processor import MermaidProcessor
 from mermaidmd2pdf.generator import ImageGenerator
 from mermaidmd2pdf.pdf import PDFGenerator
+from mermaidmd2pdf.processor import MermaidProcessor
+from mermaidmd2pdf.validator import FileValidator
+
+# Test constants
+EXPECTED_SMALL_DIAGRAM_COUNT = 2
+EXPECTED_LARGE_DIAGRAM_COUNT = 3
 
 def check_dependencies():
     """Check if all required external dependencies are available."""
@@ -27,16 +32,19 @@ def check_dependencies():
             "apt-get install pandoc (Linux)"
         )
 
+
 @pytest.fixture(autouse=True)
 def ensure_dependencies():
     """Ensure all required dependencies are available before running tests."""
     check_dependencies()
+
 
 @pytest.fixture
 def temp_dir():
     """Create a temporary directory for testing."""
     with tempfile.TemporaryDirectory() as temp_dir:
         yield Path(temp_dir)
+
 
 @pytest.fixture
 def sample_markdown():
@@ -52,6 +60,7 @@ graph TD
 ```
 
 And some more text after the diagram."""
+
 
 def test_complete_workflow(temp_dir, sample_markdown):
     # Set up input and output files
@@ -74,7 +83,7 @@ def test_complete_workflow(temp_dir, sample_markdown):
     # Step 3: Process Mermaid diagrams
     processor = MermaidProcessor()
     diagrams = processor.extract_diagrams(input_file.read_text())
-    assert len(diagrams) == 1
+    assert len(diagrams) == EXPECTED_SMALL_DIAGRAM_COUNT
 
     # Step 4: Generate images
     image_generator = ImageGenerator()
@@ -88,15 +97,14 @@ def test_complete_workflow(temp_dir, sample_markdown):
     # Step 5: Generate PDF
     pdf_generator = PDFGenerator()
     success, error = pdf_generator.generate_pdf(
-        input_file.read_text(),
-        dict(zip(diagrams, image_paths)),
-        output_file
+        input_file.read_text(), dict(zip(diagrams, image_paths)), output_file
     )
     assert success, f"PDF generation failed: {error}"
 
     # Verify PDF was created
     assert output_file.exists()
     assert output_file.stat().st_size > 0
+
 
 def test_workflow_with_multiple_diagrams(temp_dir):
     markdown_content = """# Multiple Diagrams
@@ -133,7 +141,7 @@ sequenceDiagram
 
     processor = MermaidProcessor()
     diagrams = processor.extract_diagrams(input_file.read_text())
-    assert len(diagrams) == 2
+    assert len(diagrams) == EXPECTED_SMALL_DIAGRAM_COUNT
 
     image_generator = ImageGenerator()
     image_paths = []
@@ -145,14 +153,13 @@ sequenceDiagram
 
     pdf_generator = PDFGenerator()
     success, error = pdf_generator.generate_pdf(
-        input_file.read_text(),
-        dict(zip(diagrams, image_paths)),
-        output_file
+        input_file.read_text(), dict(zip(diagrams, image_paths)), output_file
     )
     assert success, f"PDF generation failed: {error}"
 
     assert output_file.exists()
     assert output_file.stat().st_size > 0
+
 
 def test_workflow_error_handling(temp_dir):
     # Test with invalid Mermaid syntax
@@ -178,6 +185,7 @@ graph TD
     success, error, _ = image_generator.generate_image(diagrams[0], temp_dir)
     assert not success, "Expected image generation to fail with invalid diagram"
     assert error is not None, "Expected error message for invalid diagram"
+
 
 def test_real_world_document(temp_dir):
     """Test PDF generation with a real-world document containing multiple diagrams and complex markdown."""
@@ -297,7 +305,7 @@ graph LR
 
     processor = MermaidProcessor()
     diagrams = processor.extract_diagrams(input_file.read_text())
-    assert len(diagrams) == 3, "Expected 3 Mermaid diagrams in the document"
+    assert len(diagrams) == EXPECTED_LARGE_DIAGRAM_COUNT, "Expected 3 Mermaid diagrams in the document"
 
     image_generator = ImageGenerator()
     image_paths = []
@@ -312,10 +320,125 @@ graph LR
         input_file.read_text(),
         dict(zip(diagrams, image_paths)),
         output_file,
-        title="Technical Design Document"
+        title="Technical Design Document",
     )
     assert success, f"PDF generation failed: {error}"
 
     # Verify PDF was created and has content
     assert output_file.exists()
     assert output_file.stat().st_size > 0
+
+
+def test_basic_workflow(temp_dir):
+    """Test basic workflow with a simple Markdown file."""
+    # Create input file
+    input_file = temp_dir / "test.md"
+    input_file.write_text(
+        """# Test Document
+
+Here's a simple diagram:
+
+```mermaid
+graph TD
+    A[Start] --> B[Process]
+    B --> C[End]
+```
+
+And another one:
+
+```mermaid
+sequenceDiagram
+    Alice->>John: Hello John, how are you?
+    John-->>Alice: Great!
+```
+"""
+    )
+
+    # Process diagrams
+    processor = MermaidProcessor()
+    diagrams = processor.extract_diagrams(input_file.read_text())
+    assert len(diagrams) == EXPECTED_SMALL_DIAGRAM_COUNT
+
+    # Generate images
+    image_generator = ImageGenerator()
+    for diagram in diagrams:
+        success, error, path = image_generator.generate_image(diagram, temp_dir)
+        assert success and path is not None, f"Image generation failed: {error}"
+        assert path.exists()
+
+
+def test_invalid_diagram(temp_dir):
+    """Test handling of invalid Mermaid diagrams."""
+    invalid_markdown = """# Invalid Test
+
+```mermaid
+invalid diagram
+```
+"""
+    input_file = temp_dir / "invalid.md"
+    input_file.write_text(invalid_markdown)
+
+    processor = MermaidProcessor()
+    diagrams = processor.extract_diagrams(input_file.read_text())
+    assert len(diagrams) == 1
+
+    image_generator = ImageGenerator()
+    success, error, _ = image_generator.generate_image(diagrams[0], temp_dir)
+    assert not success
+    assert "Invalid diagram type" in error
+
+
+def test_real_world_document(temp_dir):
+    """Test PDF generation with a real-world document containing multiple diagrams."""
+    markdown_content = """# Technical Design: System Architecture
+
+## Overview
+This document details the technical design for our system.
+
+## System Architecture
+
+```mermaid
+graph TD
+    A[Client] --> B[API Gateway]
+    B --> C[Auth Service]
+    B --> D[Core Service]
+    D --> E[Database]
+```
+
+## Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Auth Service
+    participant D as Database
+    U->>A: Login Request
+    A->>D: Validate Credentials
+    D-->>A: Valid
+    A-->>U: JWT Token
+```
+
+## Data Model
+
+```mermaid
+erDiagram
+    USER ||--o{ ORDER : places
+    ORDER ||--|{ ITEM : contains
+```
+"""
+
+    # Create input file
+    input_file = temp_dir / "design.md"
+    input_file.write_text(markdown_content)
+
+    # Process diagrams
+    processor = MermaidProcessor()
+    diagrams = processor.extract_diagrams(input_file.read_text())
+    assert len(diagrams) == EXPECTED_LARGE_DIAGRAM_COUNT, "Expected 3 Mermaid diagrams in the document"
+
+    # Generate images
+    image_generator = ImageGenerator()
+    for diagram in diagrams:
+        success, error, path = image_generator.generate_image(diagram, temp_dir)
+        assert success and path is not None, f"Image generation failed: {error}"
+        assert path.exists()

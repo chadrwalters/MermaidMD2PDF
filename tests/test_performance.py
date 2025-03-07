@@ -1,18 +1,15 @@
-import os
+import tempfile
 import time
-import psutil
-import pytest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Generator
-import tempfile
-import shutil
-from concurrent.futures import ThreadPoolExecutor
 
-from mermaidmd2pdf.validator import FileValidator
-from mermaidmd2pdf.processor import MermaidProcessor
-from mermaidmd2pdf.pdf import PDFGenerator
-from mermaidmd2pdf.dependencies import DependencyChecker
+import psutil
+import pytest
 from mermaidmd2pdf.generator import ImageGenerator
+from mermaidmd2pdf.pdf import PDFGenerator
+from mermaidmd2pdf.processor import MermaidProcessor
+from mermaidmd2pdf.validator import FileValidator
 
 # Test data
 SMALL_DOC = """# Small Test Document
@@ -113,19 +110,33 @@ stateDiagram-v2
 ```
 """
 
+# Performance thresholds
+SMALL_DOC_TIME_LIMIT = 5.0  # seconds
+SMALL_DOC_MEMORY_LIMIT = 100.0  # MB
+MEDIUM_DOC_TIME_LIMIT = 5.0  # seconds
+MEDIUM_DOC_MEMORY_LIMIT = 200.0  # MB
+LARGE_DOC_TIME_LIMIT = 10.0  # seconds
+LARGE_DOC_MEMORY_LIMIT = 500.0  # MB
+BATCH_TIME_LIMIT = 15.0  # seconds
+CLEANUP_MEMORY_LIMIT = 100.0  # MB
+
+
 @pytest.fixture
 def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for test files."""
     with tempfile.TemporaryDirectory() as tmp_dir:
         yield Path(tmp_dir)
 
+
 def get_memory_usage() -> float:
     """Get current memory usage in MB."""
     process = psutil.Process()
     return process.memory_info().rss / 1024 / 1024
 
+
 def measure_execution_time(func):
     """Decorator to measure execution time of a function."""
+
     def wrapper(*args, **kwargs):
         start_time = time.time()
         start_memory = get_memory_usage()
@@ -133,7 +144,9 @@ def measure_execution_time(func):
         end_time = time.time()
         end_memory = get_memory_usage()
         return result, end_time - start_time, end_memory - start_memory
+
     return wrapper
+
 
 @measure_execution_time
 def process_document(input_path: Path, output_path: Path) -> Path:
@@ -152,7 +165,7 @@ def process_document(input_path: Path, output_path: Path) -> Path:
         raise ValueError(f"Output validation failed: {error}")
 
     # Read and process document
-    with open(input_path, 'r', encoding='utf-8') as f:
+    with open(input_path, encoding="utf-8") as f:
         content = f.read()
 
     # Process markdown and extract diagrams
@@ -174,15 +187,13 @@ def process_document(input_path: Path, output_path: Path) -> Path:
 
         # Generate PDF
         success, error = generator.generate_pdf(
-            processed_text,
-            diagram_images,
-            output_path,
-            title="MermaidMD2PDF Document"
+            processed_text, diagram_images, output_path, title="MermaidMD2PDF Document"
         )
         if not success:
             raise ValueError(f"PDF generation failed: {error}")
 
     return output_path
+
 
 def test_small_document_performance(temp_dir: Path):
     """Test performance with a small document."""
@@ -194,9 +205,12 @@ def test_small_document_performance(temp_dir: Path):
     _, execution_time, memory_usage = process_document(input_path, output_path)
 
     # Performance assertions
-    assert execution_time < 5.0  # Should process in under 5 seconds (XeLaTeX is slower)
-    assert memory_usage < 100.0  # Should use less than 100MB memory
+    assert (
+        execution_time < SMALL_DOC_TIME_LIMIT
+    )  # Should process in under 5 seconds (XeLaTeX is slower)
+    assert memory_usage < SMALL_DOC_MEMORY_LIMIT  # Should use less than 100MB memory
     assert output_path.exists()
+
 
 def test_medium_document_performance(temp_dir: Path):
     """Test performance with a medium-sized document."""
@@ -208,9 +222,10 @@ def test_medium_document_performance(temp_dir: Path):
     _, execution_time, memory_usage = process_document(input_path, output_path)
 
     # Performance assertions
-    assert execution_time < 5.0  # Should process in under 5 seconds
-    assert memory_usage < 200.0  # Should use less than 200MB memory
+    assert execution_time < MEDIUM_DOC_TIME_LIMIT  # Should process in under 5 seconds
+    assert memory_usage < MEDIUM_DOC_MEMORY_LIMIT  # Should use less than 200MB memory
     assert output_path.exists()
+
 
 def test_large_document_performance(temp_dir: Path):
     """Test performance with a large document."""
@@ -222,16 +237,17 @@ def test_large_document_performance(temp_dir: Path):
     _, execution_time, memory_usage = process_document(input_path, output_path)
 
     # Performance assertions
-    assert execution_time < 10.0  # Should process in under 10 seconds
-    assert memory_usage < 500.0  # Should use less than 500MB memory
+    assert execution_time < LARGE_DOC_TIME_LIMIT  # Should process in under 10 seconds
+    assert memory_usage < LARGE_DOC_MEMORY_LIMIT  # Should use less than 500MB memory
     assert output_path.exists()
+
 
 def test_concurrent_processing(temp_dir: Path):
     """Test concurrent processing of multiple documents."""
     documents = [
         ("small.md", SMALL_DOC),
         ("medium.md", MEDIUM_DOC),
-        ("large.md", LARGE_DOC)
+        ("large.md", LARGE_DOC),
     ]
 
     # Create test files
@@ -247,15 +263,15 @@ def test_concurrent_processing(temp_dir: Path):
     # Process documents concurrently
     start_time = time.time()
     with ThreadPoolExecutor(max_workers=3) as executor:
-        results = list(executor.map(
-            lambda x: process_single_doc(x[0]),
-            documents
-        ))
+        results = list(executor.map(lambda x: process_single_doc(x[0]), documents))
     total_time = time.time() - start_time
 
     # Performance assertions
-    assert total_time < 15.0  # Should process all documents in under 15 seconds
+    assert (
+        total_time < BATCH_TIME_LIMIT
+    )  # Should process all documents in under 15 seconds
     assert all(output_path.exists() for output_path, _, _ in results)
+
 
 def test_memory_cleanup(temp_dir: Path):
     """Test memory cleanup after processing."""
@@ -269,8 +285,9 @@ def test_memory_cleanup(temp_dir: Path):
 
     # Force garbage collection
     import gc
+
     gc.collect()
 
     # Check memory usage after cleanup
     current_memory = get_memory_usage()
-    assert current_memory < 100.0  # Should clean up to under 100MB
+    assert current_memory < CLEANUP_MEMORY_LIMIT  # Should clean up to under 100MB

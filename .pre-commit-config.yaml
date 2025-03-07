@@ -3,26 +3,35 @@ repos:
     rev: v4.5.0
     hooks:
       - id: trailing-whitespace
+        exclude: ^\.history/
       - id: end-of-file-fixer
+        exclude: ^\.history/
       - id: check-yaml
+        exclude: ^\.history/
       - id: check-added-large-files
+        exclude: ^\.history/
       - id: check-toml
+        exclude: ^\.history/
       - id: debug-statements
+        exclude: ^\.history/
 
   - repo: https://github.com/psf/black
     rev: 24.2.0
     hooks:
       - id: black
         language_version: python3
+        exclude: ^\.history/
 
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
         args: ["--profile", "black"]
+        exclude: ^\.history/
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.3.0
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        exclude: ^\.history/

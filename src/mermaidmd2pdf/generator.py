@@ -1,4 +1,5 @@
 """Image and PDF generator components for MermaidMD2PDF."""
+
 import json
 import os
 import subprocess
@@ -74,6 +75,7 @@ class ImageGenerator:
                     ],
                     capture_output=True,
                     text=True,
+                    check=False,
                 )
 
                 # Clean up temporary files
@@ -86,9 +88,9 @@ class ImageGenerator:
                 return True, None, output_path
 
         except subprocess.CalledProcessError as e:
-            return False, f"Failed to run Mermaid CLI: {str(e)}", None
+            return False, f"Failed to run Mermaid CLI: {e!s}", None
         except Exception as e:
-            return False, f"Error generating image: {str(e)}", None
+            return False, f"Error generating image: {e!s}", None
 
     @staticmethod
     def generate_images(
@@ -112,12 +114,15 @@ class ImageGenerator:
         output_dir.mkdir(parents=True, exist_ok=True)
 
         for diagram in diagrams:
-            success, error, image_path = ImageGenerator.generate_image(diagram, output_dir)
+            success, error, image_path = ImageGenerator.generate_image(
+                diagram, output_dir
+            )
             if success and image_path:
                 diagram_images[diagram] = image_path
             if error:
                 errors.append(
-                    f"Failed to generate image for diagram at line {diagram.start_line}: {error}"
+                    "Failed to generate image for diagram at "
+                    f"line {diagram.start_line}: {error}"
                 )
 
         return diagram_images, errors
@@ -151,13 +156,15 @@ class PDFGenerator:
 
                 # Generate images for all diagrams
                 image_generator = ImageGenerator()
-                diagram_images, errors = image_generator.generate_images(diagrams, temp_path)
+                diagram_images, errors = image_generator.generate_images(
+                    diagrams, temp_path
+                )
 
                 if errors:
                     return False, f"Failed to generate images: {'; '.join(errors)}"
 
                 # Read the markdown content
-                with open(input_path, 'r', encoding='utf-8') as f:
+                with open(input_path, encoding="utf-8") as f:
                     content = f.read()
 
                 # Replace Mermaid code blocks with image references
@@ -167,27 +174,32 @@ class PDFGenerator:
                     # Replace the mermaid code block with an image reference
                     content = content.replace(
                         f"```mermaid\n{diagram.content}\n```",
-                        f"![Diagram {diagram.start_line}]({rel_path})"
+                        f"![Diagram {diagram.start_line}]({rel_path})",
                     )
 
                 # Write modified markdown to temporary file
-                with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as temp_md:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".md", delete=False
+                ) as temp_md:
                     temp_md.write(content)
                     temp_md.flush()
 
                     # Use pandoc to convert markdown to PDF
                     result = subprocess.run(
                         [
-                            'pandoc',
+                            "pandoc",
                             temp_md.name,
-                            '-o', str(output_path),
-                            '--pdf-engine=weasyprint',
-                            '--standalone',
-                            '--embed-resources',
-                            '--metadata', 'title="MermaidMD2PDF Document"',
+                            "-o",
+                            str(output_path),
+                            "--pdf-engine=weasyprint",
+                            "--standalone",
+                            "--embed-resources",
+                            "--metadata",
+                            'title="MermaidMD2PDF Document"',
                         ],
                         capture_output=True,
                         text=True,
+                        check=False,
                     )
 
                     # Clean up temporary file
@@ -199,4 +211,4 @@ class PDFGenerator:
                     return True, None
 
         except Exception as e:
-            return False, f"Error generating PDF: {str(e)}"
+            return False, f"Error generating PDF: {e!s}"

@@ -1,9 +1,7 @@
 """Test suite for the dependencies module."""
-import importlib.metadata
-import os
-from unittest.mock import patch
 
-import pytest
+import importlib.metadata
+from unittest.mock import patch
 
 from mermaidmd2pdf.dependencies import DependencyChecker
 
@@ -29,6 +27,7 @@ def test_check_pandoc_not_installed():
 
 def test_check_python_packages_all_satisfied():
     """Test Python package verification when all requirements are met."""
+
     def mock_version(package):
         versions = {
             "markdown": "3.5.0",
@@ -45,6 +44,7 @@ def test_check_python_packages_all_satisfied():
 
 def test_check_python_packages_missing():
     """Test Python package verification when requirements are missing."""
+
     def mock_version(package):
         if package == "markdown":
             raise importlib.metadata.PackageNotFoundError()
@@ -78,6 +78,7 @@ def test_check_python_packages_version_mismatch():
 
 def test_verify_all_success():
     """Test complete dependency verification when all requirements are met."""
+
     def mock_version(package):
         versions = {
             "markdown": "3.5.0",

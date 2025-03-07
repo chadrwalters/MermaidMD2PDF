@@ -1,4 +1,5 @@
 """Mermaid diagram processor component for MermaidMD2PDF."""
+
 import re
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
@@ -36,6 +37,7 @@ class MermaidProcessor:
         r"^```mermaid\s*\n(.*?)\n```", re.MULTILINE | re.DOTALL
     )
     MERMAID_INLINE_PATTERN = re.compile(r"<mermaid>(.*?)</mermaid>", re.DOTALL)
+    MIN_DIAGRAM_LINES = 2  # Type + at least one element
 
     @staticmethod
     def extract_diagrams(markdown_text: str) -> List[MermaidDiagram]:
@@ -95,29 +97,29 @@ class MermaidProcessor:
         if not content:
             return False, "Empty diagram content"
 
-        # Check for single word content (incomplete diagram)
-        if len(content.split()) == 1:
-            return False, "Incomplete diagram definition"
+        # Check for minimum content length (type + at least one element)
+        if len(content.split("\n")) < MermaidProcessor.MIN_DIAGRAM_LINES:
+            return False, "Diagram must contain at least one element"
 
         # Basic syntax validation
-        valid_prefixes = [
+        first_line = content.split("\n")[0].strip().lower()
+        valid_types = {
             "graph",
-            "sequenceDiagram",
+            "sequencediagram",
             "classDiagram",
             "stateDiagram",
             "erDiagram",
-            "pie",
-            "gantt",
             "flowchart",
-        ]
+            "gantt",
+            "pie",
+            "journey",
+        }
 
-        # Check if content starts with a valid diagram type
-        if not any(content.startswith(prefix) for prefix in valid_prefixes):
-            return False, "Invalid diagram type or missing type declaration"
-
-        # Check for minimum content length (type + at least one element)
-        if len(content.split("\n")) < 2:
-            return False, "Diagram must contain at least one element"
+        if not any(first_line.startswith(t) for t in valid_types):
+            return (
+                False,
+                f"Invalid diagram type. Must be one of: {', '.join(valid_types)}",
+            )
 
         return True, None
 
@@ -139,8 +141,6 @@ class MermaidProcessor:
         for diagram in diagrams:
             is_valid, error = MermaidProcessor.validate_diagram(diagram)
             if not is_valid:
-                errors.append(
-                    f"Invalid diagram at line {diagram.start_line}: {error}"
-                )
+                errors.append(f"Invalid diagram at line {diagram.start_line}: {error}")
 
         return markdown_text, errors

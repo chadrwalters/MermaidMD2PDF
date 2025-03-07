@@ -1,4 +1,5 @@
 """Command-line interface for MermaidMD2PDF."""
+
 import sys
 import tempfile
 from pathlib import Path
@@ -46,7 +47,7 @@ def main(input_file: str, output_file: str, title: str | None = None) -> None:
     try:
         markdown_text = Path(input_file).read_text()
     except Exception as e:
-        click.echo(f"Error reading input file: {str(e)}", err=True)
+        click.echo(f"Error reading input file: {e!s}", err=True)
         sys.exit(1)
 
     # Process Markdown and extract diagrams

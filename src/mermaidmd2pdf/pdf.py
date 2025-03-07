@@ -1,9 +1,9 @@
 """PDF generator component for MermaidMD2PDF."""
-import re
+
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from mermaidmd2pdf.processor import MermaidDiagram
 
@@ -91,16 +91,21 @@ class PDFGenerator:
                 ]
 
                 # Run Pandoc
-                result = subprocess.run(cmd, capture_output=True, text=True)
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
                 if result.returncode != 0:
                     return False, f"Pandoc error: {result.stderr}"
 
                 return True, None
 
         except subprocess.CalledProcessError as e:
-            return False, f"Failed to run Pandoc: {str(e)}"
+            return False, f"Failed to run Pandoc: {e!s}"
         except Exception as e:
-            return False, f"Error generating PDF: {str(e)}"
+            return False, f"Error generating PDF: {e!s}"
         finally:
             # Clean up temporary file
             if "temp_md" in locals():
