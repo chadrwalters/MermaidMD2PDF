@@ -101,8 +101,8 @@ jobs:
             ${{ runner.os }}-python-${{ matrix.python-version }}-deps-
       - name: Install Python dependencies
         run: |
-          uv pip install pytest pytest-cov
-          uv pip install -e ".[dev]"
+          uv pip install -e ".[dev]"  # Install package first with all dev dependencies
+          uv pip install pytest-cov  # Only install additional test dependencies
           uv pip freeze  # For debugging
       - name: Run tests
         run: |
