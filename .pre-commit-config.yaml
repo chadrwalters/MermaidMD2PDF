@@ -9,14 +9,6 @@ repos:
         args: [--check]
         exclude: ^\.history/
 
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
-    hooks:
-      - id: isort
-        name: isort
-        args: ["--profile", "black", "--check-only"]
-        exclude: ^\.history/
-
   - repo: local
     hooks:
       - id: check-for-changes
