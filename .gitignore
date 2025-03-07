@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
+build/
 develop-eggs/
 dist/
 downloads/
@@ -33,7 +34,7 @@ ENV/
 *.swo
 
 # Project specific
-.cm/
+.history/
 config.toml
 output/
 *_backup/
@@ -92,5 +93,3 @@ export/
 
 .pypirc
 .pypirc
-
-.history/
