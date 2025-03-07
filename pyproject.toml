@@ -89,6 +89,8 @@ disallow_untyped_defs = true
 [tool.ruff]
 line-length = 88
 target-version = "py38"
+fix = true
+unsafe-fixes = true
 
 [tool.ruff.lint]
 select = ["E", "F", "B", "I", "N", "UP", "PL", "RUF"]

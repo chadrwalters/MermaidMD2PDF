@@ -6,4 +6,4 @@ from mermaidmd2pdf.validator import FileValidator
 
 __version__ = "0.1.0"
 
-__all__ = ["ImageGenerator", "PDFGenerator", "MermaidProcessor", "FileValidator"]
+__all__ = ["FileValidator", "ImageGenerator", "MermaidProcessor", "PDFGenerator"]

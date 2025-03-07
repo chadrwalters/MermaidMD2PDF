@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+
 from mermaidmd2pdf.cli import main
 from mermaidmd2pdf.dependencies import DependencyChecker
 from mermaidmd2pdf.generator import ImageGenerator
@@ -10,7 +11,8 @@ from mermaidmd2pdf.processor import MermaidProcessor
 from mermaidmd2pdf.validator import FileValidator
 
 # Constants
-EXPECTED_DIAGRAM_COUNT = 2
+EXPECTED_DIAGRAM_COUNT = 1
+EXPECTED_ERROR_COUNT = 0
 
 
 @pytest.fixture
@@ -60,13 +62,13 @@ def test_workflow_with_single_diagram(
     # Process markdown and extract diagrams
     processor = MermaidProcessor()
     diagrams = processor.extract_diagrams(markdown_text)
-    assert len(diagrams) == 1
+    assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
 
     # Generate images
     image_generator = ImageGenerator()
     diagram_images, errors = image_generator.generate_images(diagrams, temp_output_dir)
     assert not errors
-    assert len(diagram_images) == 1
+    assert len(diagram_images) == EXPECTED_DIAGRAM_COUNT
 
     # Create PDF
     success = main(str(sample_markdown), str(output_file))
@@ -109,21 +111,26 @@ Final text.
     # Validate input and output files
     validator = FileValidator()
     output_file = temp_output_dir / "output.pdf"
-    assert validator.validate_input_file(str(markdown_file))
-    assert validator.validate_output_file(str(output_file))
+    is_valid, error = validator.validate_input_file(str(markdown_file))
+    assert is_valid, f"Input validation failed: {error}"
+    is_valid, error = validator.validate_output_file(str(output_file))
+    assert is_valid, f"Output validation failed: {error}"
 
     # Read input file
     markdown_text = markdown_file.read_text()
 
     # Process markdown and extract diagrams
     processor = MermaidProcessor()
+    processed_text, errors = processor.process_markdown(markdown_text)
+    assert not errors, f"Markdown processing failed: {'; '.join(errors)}"
+
     diagrams = processor.extract_diagrams(markdown_text)
     assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
 
     # Generate images
     image_generator = ImageGenerator()
     diagram_images, errors = image_generator.generate_images(diagrams, temp_output_dir)
-    assert not errors
+    assert not errors, f"Failed to generate images: {'; '.join(errors)}"
     assert len(diagram_images) == EXPECTED_DIAGRAM_COUNT
 
     # Create PDF
@@ -162,7 +169,7 @@ Just some regular markdown text.
     # Process markdown and extract diagrams
     processor = MermaidProcessor()
     diagrams = processor.extract_diagrams(markdown_text)
-    assert len(diagrams) == 0
+    assert len(diagrams) == EXPECTED_ERROR_COUNT
 
     # Create PDF
     success = main(str(markdown_file), str(output_file))

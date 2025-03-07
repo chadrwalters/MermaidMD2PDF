@@ -8,6 +8,7 @@ from typing import Any, Callable, Generator, List, Tuple, TypeVar
 
 import psutil
 import pytest
+
 from mermaidmd2pdf.cli import main
 from mermaidmd2pdf.dependencies import DependencyChecker
 from mermaidmd2pdf.generator import ImageGenerator
@@ -147,7 +148,7 @@ def get_memory_usage() -> float:
 
 
 def measure_execution_time(
-    func: Callable[..., T]
+    func: Callable[..., T],
 ) -> Callable[..., Tuple[T, float, float]]:
     """Decorator to measure execution time of a function."""
 
@@ -320,13 +321,13 @@ def large_markdown_file(temp_output_dir: Path) -> Path:
 
     # Add multiple diagrams
     for i in range(DIAGRAM_COUNT):
-        content.append(f"\n## Section {i+1}\n\n")
+        content.append(f"\n## Section {i + 1}\n\n")
         content.append("```mermaid\n")
         content.append("graph TD\n")
         content.append(f"A{i}[Start] --> B{i}[Process]\n")
         content.append(f"B{i} --> C{i}[End]\n")
         content.append("```\n\n")
-        content.append(f"Some text for section {i+1}\n\n")
+        content.append(f"Some text for section {i + 1}\n\n")
 
     markdown_file.write_text("".join(content))
     return markdown_file

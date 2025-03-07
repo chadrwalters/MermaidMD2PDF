@@ -6,6 +6,7 @@ import tempfile
 from typing import Generator
 
 import pytest
+
 from mermaidmd2pdf.validator import FileValidator
 
 

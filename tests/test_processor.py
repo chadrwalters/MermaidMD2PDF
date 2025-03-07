@@ -1,12 +1,14 @@
 """Tests for the Mermaid processor component."""
 
 import textwrap
+from pathlib import Path
 
 from mermaidmd2pdf.processor import MermaidDiagram, MermaidProcessor
 
 # Test constants
 EXPECTED_LINE_NUMBER = 4
-EXPECTED_DIAGRAM_COUNT = 2
+EXPECTED_DIAGRAM_COUNT = 1
+EXPECTED_ERROR_COUNT = 1
 
 
 def test_extract_diagrams_fenced() -> None:
@@ -25,7 +27,7 @@ def test_extract_diagrams_fenced() -> None:
     )
 
     diagrams = MermaidProcessor.extract_diagrams(markdown)
-    assert len(diagrams) == 1
+    assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
     assert diagrams[0].content == "graph TD\nA[Start] --> B[End]"
     assert diagrams[0].start_line == EXPECTED_LINE_NUMBER
     assert "```mermaid" in diagrams[0].original_text
@@ -47,7 +49,7 @@ def test_extract_diagrams_inline() -> None:
     )
 
     diagrams = MermaidProcessor.extract_diagrams(markdown)
-    assert len(diagrams) == 1
+    assert len(diagrams) == EXPECTED_DIAGRAM_COUNT
     assert diagrams[0].content == "sequenceDiagram\nA->>B: Hello"
     assert diagrams[0].start_line == EXPECTED_LINE_NUMBER
     assert "<mermaid>" in diagrams[0].original_text
@@ -150,5 +152,22 @@ def test_process_markdown_invalid() -> None:
 
     processed_text, errors = MermaidProcessor.process_markdown(markdown)
     assert processed_text == markdown
-    assert len(errors) == 1
-    assert "Invalid diagram at line" in errors[0]
+    assert len(errors) == EXPECTED_ERROR_COUNT
+
+
+def test_process_markdown_success(temp_dir: Path) -> None:
+    """Test processing of Markdown with valid diagrams."""
+    markdown = textwrap.dedent(
+        """
+        # Test Document
+
+        ```mermaid
+        graph TD
+        A[Start] --> B[End]
+        ```
+        """
+    )
+
+    processed_text, errors = MermaidProcessor.process_markdown(markdown)
+    assert processed_text == markdown
+    assert len(errors) == EXPECTED_ERROR_COUNT

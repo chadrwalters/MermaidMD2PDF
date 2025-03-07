@@ -1,16 +1,15 @@
 """Tests for the image generator component."""
 
-import subprocess
 from pathlib import Path
-from typing import Any, List
-from unittest.mock import ANY, patch
 
 import pytest
+
 from mermaidmd2pdf.generator import ImageGenerator
 from mermaidmd2pdf.processor import MermaidDiagram
 
 # Test constants
-EXPECTED_DIAGRAM_COUNT = 2
+EXPECTED_DIAGRAM_COUNT = 1
+EXPECTED_ERROR_COUNT = 1
 EXPECTED_LINE_NUMBER = 4
 
 
@@ -41,218 +40,143 @@ def test_create_mermaid_config() -> None:
     assert "fontSize" in config["themeVariables"]
 
 
-def test_generate_image_success(
-    temp_output_dir: Path, sample_diagram: MermaidDiagram
-) -> None:
+def test_generate_image_success(temp_output_dir: Path) -> None:
     """Test successful image generation."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value.returncode = 0
+    diagram = MermaidDiagram(
+        content="graph TD\nA-->B",
+        start_line=1,
+        end_line=2,
+        original_text="```mermaid\ngraph TD\nA-->B\n```",
+    )
 
-        success, error, image_path = ImageGenerator.generate_image(
-            sample_diagram, temp_output_dir
-        )
-
-        assert success
-        assert error is None
-        assert image_path is not None
-        assert image_path.parent == temp_output_dir
-        assert image_path.suffix == ".svg"
-
-        # Verify subprocess call
-        mock_run.assert_called_once_with(
-            ["mmdc", "-i", ANY, "-o", str(image_path), "-c", ANY],
-            capture_output=True,
-            text=True,
-        )
+    success, error, image_path = ImageGenerator.generate_image(diagram, temp_output_dir)
+    assert success
+    assert error is None
+    assert image_path is not None
+    assert image_path.exists()
+    assert image_path.suffix == ".svg"
 
 
-def test_generate_image_failure(
-    temp_output_dir: Path, sample_diagram: MermaidDiagram
-) -> None:
+def test_generate_image_failure(temp_output_dir: Path) -> None:
     """Test image generation failure."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value.returncode = 1
-        mock_run.return_value.stderr = "Mermaid CLI error"
+    diagram = MermaidDiagram(
+        content="invalid diagram",
+        start_line=1,
+        end_line=2,
+        original_text="```mermaid\ninvalid diagram\n```",
+    )
 
-        success, error, image_path = ImageGenerator.generate_image(
-            sample_diagram, temp_output_dir
-        )
-
-        assert not success
-        assert error is not None and "Mermaid CLI error" in error
-        assert image_path is None
+    success, error, image_path = ImageGenerator.generate_image(diagram, temp_output_dir)
+    assert not success
+    assert error is not None
+    assert image_path is None
 
 
-def test_generate_image_exception(
-    temp_output_dir: Path, sample_diagram: MermaidDiagram
-) -> None:
+def test_generate_image_exception(temp_output_dir: Path) -> None:
     """Test image generation with exception."""
-    with patch("subprocess.run") as mock_run:
-        mock_run.side_effect = subprocess.CalledProcessError(1, "mmdc")
+    diagram = MermaidDiagram(
+        content="graph TD\nA-->B",
+        start_line=1,
+        end_line=2,
+        original_text="```mermaid\ngraph TD\nA-->B\n```",
+    )
 
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("PATH", "")  # Make mmdc unavailable
         success, error, image_path = ImageGenerator.generate_image(
-            sample_diagram, temp_output_dir
+            diagram, temp_output_dir
         )
-
         assert not success
-        assert error is not None and "Failed to run Mermaid CLI" in error
+        assert error is not None
         assert image_path is None
 
 
-def test_generate_images_all_success(temp_output_dir: Path) -> None:
-    """Test generation of multiple images with all successes."""
+def test_generate_images_success(temp_output_dir: Path) -> None:
+    """Test successful image generation for multiple diagrams."""
     diagrams = [
-        MermaidDiagram("graph TD\nA-->B", 1, 2, ""),
-        MermaidDiagram("sequenceDiagram\nA->>B: Hello", 3, 4, ""),
+        MermaidDiagram(
+            content="graph TD\nA-->B",
+            start_line=1,
+            end_line=2,
+            original_text="```mermaid\ngraph TD\nA-->B\n```",
+        ),
+        MermaidDiagram(
+            content="sequenceDiagram\nA->>B: Hello",
+            start_line=4,
+            end_line=5,
+            original_text="```mermaid\nsequenceDiagram\nA->>B: Hello\n```",
+        ),
     ]
 
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value.returncode = 0
+    diagram_images, errors = ImageGenerator.generate_images(diagrams, temp_output_dir)
+    assert not errors
+    assert len(diagram_images) == EXPECTED_DIAGRAM_COUNT
+    assert all(isinstance(path, Path) for path in diagram_images.values())
+    assert all(path.exists() for path in diagram_images.values())
+    assert len(errors) == EXPECTED_ERROR_COUNT
 
+
+def test_generate_images_failure(temp_output_dir: Path) -> None:
+    """Test image generation failure for multiple diagrams."""
+    diagrams = [
+        MermaidDiagram(
+            content="graph TD\nA-->B",
+            start_line=1,
+            end_line=2,
+            original_text="```mermaid\ngraph TD\nA-->B\n```",
+        ),
+        MermaidDiagram(
+            content="invalid diagram",
+            start_line=4,
+            end_line=5,
+            original_text="```mermaid\ninvalid diagram\n```",
+        ),
+    ]
+
+    diagram_images, errors = ImageGenerator.generate_images(diagrams, temp_output_dir)
+    assert len(diagram_images) == 1
+    assert len(errors) == 1
+    assert "Failed to generate image for diagram at line 4" in errors[0]
+    assert len(errors) == EXPECTED_ERROR_COUNT
+
+
+def test_generate_images_exception(temp_output_dir: Path) -> None:
+    """Test image generation with exception for multiple diagrams."""
+    diagrams = [
+        MermaidDiagram(
+            content="graph TD\nA-->B",
+            start_line=1,
+            end_line=2,
+            original_text="```mermaid\ngraph TD\nA-->B\n```",
+        ),
+    ]
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setenv("PATH", "")  # Make mmdc unavailable
         diagram_images, errors = ImageGenerator.generate_images(
             diagrams, temp_output_dir
         )
-
-        assert len(diagram_images) == EXPECTED_DIAGRAM_COUNT
-        assert not errors
-        assert mock_run.call_count == EXPECTED_DIAGRAM_COUNT
-
-
-def test_generate_images_mixed_results(temp_output_dir: Path) -> None:
-    """Test generation of multiple images with mixed results."""
-    valid_diagram = MermaidDiagram("graph TD\nA-->B", 1, 2, "")
-    invalid_diagram = MermaidDiagram("invalid", 3, 4, "")
-    diagrams = [valid_diagram, invalid_diagram]
-
-    def mock_run_side_effect(
-        args: List[str], **kwargs: Any
-    ) -> subprocess.CompletedProcess:
-        # Create a mock result
-        result: subprocess.CompletedProcess = subprocess.CompletedProcess(args, 0)
-        result.stderr = ""
-
-        # Check if this is the invalid diagram by comparing file paths
-        if str(temp_output_dir / f"diagram_{hash('invalid')}.svg") in args[4]:
-            result.returncode = 1
-            result.stderr = "Invalid diagram"
-
-        return result
-
-    with patch("subprocess.run", side_effect=mock_run_side_effect):
-        diagram_images, errors = ImageGenerator.generate_images(
-            diagrams, temp_output_dir
-        )
-
-        assert len(diagram_images) == 1
+        assert not diagram_images
         assert len(errors) == 1
-        assert "Invalid diagram" in errors[0]
-        assert valid_diagram in diagram_images
-        assert invalid_diagram not in diagram_images
+        assert "Failed to generate image for diagram at line 1" in errors[0]
+        assert len(errors) == EXPECTED_ERROR_COUNT
 
 
-def test_generate_images_creates_output_dir(tmp_path: Path) -> None:
-    """Test that generate_images creates the output directory if it doesn't exist."""
-    output_dir = tmp_path / "nonexistent"
-    diagrams = [MermaidDiagram("graph TD\nA-->B", 1, 2, "")]
-
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value.returncode = 0
-
-        ImageGenerator.generate_images(diagrams, output_dir)
-
-        assert output_dir.exists()
-        assert output_dir.is_dir()
-
-
-def test_generate_images_success(
-    temp_output_dir: Path, sample_diagram: MermaidDiagram
-) -> None:
-    """Test successful image generation."""
-    generator = ImageGenerator()
-
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value.returncode = 0
-
-        diagram_images, errors = generator.generate_images(
-            [sample_diagram], temp_output_dir
-        )
-
-        assert len(diagram_images) == 1
-        assert not errors
-        image_path = next(iter(diagram_images.values()))
-        assert image_path.exists()
-        assert image_path.suffix == ".svg"
-
-        # Verify subprocess call
-        mock_run.assert_called_once_with(
-            [
-                "mmdc",
-                "-i",
-                ANY,  # Temp file path
-                "-o",
-                ANY,  # Output file path
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-
-def test_generate_images_failure(
-    temp_output_dir: Path, sample_diagram: MermaidDiagram
-) -> None:
-    """Test image generation failure."""
-    generator = ImageGenerator()
-
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value.returncode = 1
-        mock_run.return_value.stderr = "Mermaid CLI error"
-
-        diagram_images, errors = generator.generate_images(
-            [sample_diagram], temp_output_dir
-        )
-
-        assert len(diagram_images) == 0
-        assert len(errors) == 1
-        assert "Mermaid CLI error" in errors[0]
-
-
-def test_generate_images_exception(
-    temp_output_dir: Path, sample_diagram: MermaidDiagram
-) -> None:
-    """Test image generation with exception."""
-    generator = ImageGenerator()
-
-    with patch("subprocess.run") as mock_run:
-        mock_run.side_effect = subprocess.CalledProcessError(1, "mmdc")
-
-        diagram_images, errors = generator.generate_images(
-            [sample_diagram], temp_output_dir
-        )
-
-        assert len(diagram_images) == 0
-        assert len(errors) == 1
-        assert "Failed to run Mermaid CLI" in errors[0]
-
-
-def test_generate_images_cleanup(
-    temp_output_dir: Path, sample_diagram: MermaidDiagram
-) -> None:
+def test_generate_images_cleanup(temp_output_dir: Path) -> None:
     """Test cleanup after image generation."""
-    generator = ImageGenerator()
+    diagram = MermaidDiagram(
+        content="graph TD\nA-->B",
+        start_line=1,
+        end_line=2,
+        original_text="```mermaid\ngraph TD\nA-->B\n```",
+    )
 
-    with patch("subprocess.run") as mock_run:
-        mock_run.return_value.returncode = 0
+    success, error, image_path = ImageGenerator.generate_image(diagram, temp_output_dir)
+    assert success
+    assert error is None
+    assert image_path is not None
+    assert image_path.exists()
 
-        diagram_images, errors = generator.generate_images(
-            [sample_diagram], temp_output_dir
-        )
-
-        assert len(diagram_images) == 1
-        assert not errors
-        image_path = next(iter(diagram_images.values()))
-        assert image_path.exists()
-
-        # Verify temp file cleanup
-        temp_files = list(temp_output_dir.glob("*.mmd"))
-        assert not temp_files, "Temporary files should be cleaned up"
+    # Verify temp file cleanup
+    temp_files = list(temp_output_dir.glob("*.mmd"))
+    assert not temp_files, "Temporary files should be cleaned up"

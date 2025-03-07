@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+
 from mermaidmd2pdf.processor import MermaidDiagram
 
 
