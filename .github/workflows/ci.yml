@@ -38,7 +38,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: monitor
-          package-manager: poetry
+          args: --package-manager=poetry
 
   lint:
     runs-on: ubuntu-latest
@@ -67,6 +67,7 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install -e ".[dev]"  # Install package with all dev dependencies
+          uv pip install pre-commit  # Install pre-commit globally
       - name: Initialize pre-commit
         run: |
           pre-commit install
