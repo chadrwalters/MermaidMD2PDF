@@ -7,54 +7,10 @@ on:
     branches: [main]
   release:
     types: [published]
-  workflow_dispatch: # Allow manual runs
-  schedule:
-    - cron: "0 0 * * 1" # Run security scans weekly
-
-permissions:
-  security-events: write
-  contents: read
+  workflow_dispatch:
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            .venv
-            ~/.cache/uv
-          key: ${{ runner.os }}-python-3.11-lint-deps-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-python-3.11-lint-deps-
-
-      - name: Create virtual environment and install dependencies
-        run: |
-          uv venv
-          uv pip install -e ".[dev]"
-        working-directory: ${{ github.workspace }}
-
-      - name: Run linters
-        run: |
-          uv run ruff check .
-          uv run mypy src/
-        working-directory: ${{ github.workspace }}
-
   test:
-    needs: [lint]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -78,6 +34,9 @@ jobs:
           curl -LsSf https://astral.sh/uv/install.sh | sh
           echo "$HOME/.cargo/bin" >> $GITHUB_PATH
 
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=$PYTHONPATH:${{ github.workspace }}/src" >> $GITHUB_ENV
+
       - name: Cache dependencies
         uses: actions/cache@v4
         with:
@@ -88,30 +47,43 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-python-${{ matrix.python-version }}-deps-
 
-      - name: Create virtual environment and install dependencies
+      - name: Debug environment
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Directory contents:"
+          ls -la
+          echo "Python version:"
+          python --version
+          echo "PYTHONPATH: $PYTHONPATH"
+        working-directory: ${{ github.workspace }}
+
+      - name: Create virtual environment and install package
         run: |
           uv venv
           uv pip install -e .
+        working-directory: ${{ github.workspace }}
+
+      - name: Install test dependencies
+        run: |
           uv pip install ".[dev]"
           uv pip install pytest-cov
         working-directory: ${{ github.workspace }}
 
-      - name: Check Python environment
+      - name: Verify package installation
         run: |
-          source .venv/bin/activate
-          python --version
-          which python
-          echo "PYTHONPATH: $PYTHONPATH"
-          echo "Current directory: $(pwd)"
-          ls -la
-          python -c "import sys; print('Python path:', sys.path)"
-          python -c "import mermaidmd2pdf; print('Package found at:', mermaidmd2pdf.__file__)"
+          uv run python -c "import sys; print('Python path:', sys.path)"
+          uv run python -c "import mermaidmd2pdf; print('Package found at:', mermaidmd2pdf.__file__)"
+        working-directory: ${{ github.workspace }}
+
+      - name: Run linters
+        run: |
+          uv run ruff check .
+          uv run mypy src/
         working-directory: ${{ github.workspace }}
 
       - name: Run tests with coverage
         run: |
-          source .venv/bin/activate
-          python -m pytest -vl \
+          uv run pytest -vl \
             --cov=mermaidmd2pdf \
             --cov-report=xml \
             --cov-report=term \
