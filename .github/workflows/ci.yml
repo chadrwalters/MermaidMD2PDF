@@ -98,6 +98,7 @@ jobs:
 
       - name: Check Python environment
         run: |
+          source .venv/bin/activate
           python --version
           which python
           echo "PYTHONPATH: $PYTHONPATH"
@@ -109,7 +110,8 @@ jobs:
 
       - name: Run tests with coverage
         run: |
-          uv run pytest -vl \
+          source .venv/bin/activate
+          python -m pytest -vl \
             --cov=mermaidmd2pdf \
             --cov-report=xml \
             --cov-report=term \
