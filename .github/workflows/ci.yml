@@ -7,6 +7,7 @@ on:
     branches: [main]
   release:
     types: [published]
+  workflow_dispatch: # Allow manual runs
   schedule:
     - cron: "0 0 * * 1" # Run security scans weekly
 
