@@ -29,6 +29,15 @@ class ImageGenerator:
         }
 
     @staticmethod
+    def _create_puppeteer_config() -> Dict[str, Any]:
+        """Create Puppeteer configuration.
+
+        Returns:
+            Dictionary containing Puppeteer configuration
+        """
+        return {"args": ["--no-sandbox", "--disable-setuid-sandbox"]}
+
+    @staticmethod
     def generate_image(
         diagram: MermaidDiagram, output_dir: Path
     ) -> Tuple[bool, Optional[str], Optional[Path]]:
@@ -40,17 +49,19 @@ class ImageGenerator:
 
         Returns:
             Tuple of (success, error_message, image_path)
-            - success: True if image was generated successfully
+            - success: True if successful, False if failed
             - error_message: None if successful, error description if failed
             - image_path: Path to generated image if successful, None if failed
         """
         try:
-            # Create temporary files for diagram and config
+            # Create temporary files for diagram, config, and puppeteer config
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".mmd", delete=False
             ) as mmd_file, tempfile.NamedTemporaryFile(
                 mode="w", suffix=".json", delete=False
-            ) as config_file:
+            ) as config_file, tempfile.NamedTemporaryFile(
+                mode="w", suffix=".json", delete=False
+            ) as puppeteer_file:
                 # Write diagram content
                 mmd_file.write(diagram.content)
                 mmd_file.flush()
@@ -58,6 +69,10 @@ class ImageGenerator:
                 # Write config
                 json.dump(ImageGenerator._create_mermaid_config(), config_file)
                 config_file.flush()
+
+                # Write puppeteer config
+                json.dump(ImageGenerator._create_puppeteer_config(), puppeteer_file)
+                puppeteer_file.flush()
 
                 # Generate unique output filename
                 output_path = output_dir / f"diagram_{hash(diagram.content)}.svg"
@@ -72,7 +87,8 @@ class ImageGenerator:
                         str(output_path),
                         "-c",
                         config_file.name,
-                        "--no-sandbox",
+                        "-p",
+                        puppeteer_file.name,
                     ],
                     capture_output=True,
                     text=True,
@@ -82,6 +98,7 @@ class ImageGenerator:
                 # Clean up temporary files
                 os.unlink(mmd_file.name)
                 os.unlink(config_file.name)
+                os.unlink(puppeteer_file.name)
 
                 if result.returncode != 0:
                     return False, f"Mermaid CLI error: {result.stderr}", None
