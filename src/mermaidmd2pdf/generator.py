@@ -126,6 +126,10 @@ class ImageGenerator:
             - diagram_images: Dictionary mapping diagrams to their image paths
             - errors: List of error messages for failed conversions
         """
+        # Return early if there are no diagrams to process
+        if not diagrams:
+            return {}, []
+
         diagram_images = {}
         errors = []
 
