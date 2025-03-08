@@ -131,36 +131,3 @@ jobs:
         run: |
           uv run twine upload dist/*
         working-directory: ${{ github.workspace }}
-
-  docs:
-    needs: [lint, test]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install uv
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-      - name: Create virtual environment
-        run: |
-          uv venv
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            .venv
-            ~/.cache/uv
-          key: ${{ runner.os }}-python-3.11-docs-deps-${{ hashFiles('pyproject.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-python-3.11-docs-deps-
-      - name: Install dependencies
-        run: |
-          uv pip install mkdocs-material mkdocstrings[python] pymdown-extensions
-      - name: Build and deploy documentation
-        run: |
-          uv run mkdocs gh-deploy --force
