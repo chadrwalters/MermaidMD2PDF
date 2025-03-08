@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -131,19 +132,119 @@ class ImageGenerator:
         # Create output directory if it doesn't exist
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        for diagram in diagrams:
-            success, error, image_path = ImageGenerator.generate_image(
-                diagram, output_dir
-            )
-            if success and image_path:
-                diagram_images[diagram] = image_path
-            if error:
-                errors.append(
-                    "Failed to generate image for diagram at "
-                    f"line {diagram.start_line}: {error}"
-                )
+        # Create shared config files
+        with tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as config_file, tempfile.NamedTemporaryFile(
+            mode="w", suffix=".json", delete=False
+        ) as puppeteer_file:
+            # Write config files once
+            json.dump(ImageGenerator._create_mermaid_config(), config_file)
+            config_file.flush()
+            json.dump(ImageGenerator._create_puppeteer_config(), puppeteer_file)
+            puppeteer_file.flush()
+
+            # Process diagrams in parallel
+            with ThreadPoolExecutor(
+                max_workers=min(len(diagrams), os.cpu_count() or 1)
+            ) as executor:
+                future_to_diagram = {
+                    executor.submit(
+                        ImageGenerator.generate_image_with_config,
+                        diagram,
+                        output_dir,
+                        config_file.name,
+                        puppeteer_file.name,
+                    ): diagram
+                    for diagram in diagrams
+                }
+
+                for future in as_completed(future_to_diagram):
+                    diagram = future_to_diagram[future]
+                    try:
+                        success, error, image_path = future.result()
+                        if success and image_path:
+                            diagram_images[diagram] = image_path
+                        if error:
+                            errors.append(
+                                "Failed to generate image for diagram at "
+                                f"line {diagram.start_line}: {error}"
+                            )
+                    except Exception as e:
+                        errors.append(
+                            "Failed to generate image for diagram at "
+                            f"line {diagram.start_line}: {e!s}"
+                        )
+
+            # Clean up config files
+            os.unlink(config_file.name)
+            os.unlink(puppeteer_file.name)
 
         return diagram_images, errors
+
+    @staticmethod
+    def generate_image_with_config(
+        diagram: MermaidDiagram,
+        output_dir: Path,
+        config_path: str,
+        puppeteer_path: str,
+    ) -> Tuple[bool, Optional[str], Optional[Path]]:
+        """Generate an image from a Mermaid diagram using shared config files.
+
+        Args:
+            diagram: The MermaidDiagram to convert
+            output_dir: Directory to save the generated image
+            config_path: Path to the shared Mermaid config file
+            puppeteer_path: Path to the shared Puppeteer config file
+
+        Returns:
+            Tuple of (success, error_message, image_path)
+            - success: True if successful, False if failed
+            - error_message: None if successful, error description if failed
+            - image_path: Path to generated image if successful, None if failed
+        """
+        try:
+            # Create temporary file for diagram
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".mmd", delete=False
+            ) as mmd_file:
+                # Write diagram content
+                mmd_file.write(diagram.content)
+                mmd_file.flush()
+
+                # Generate unique output filename
+                output_path = output_dir / f"diagram_{hash(diagram.content)}.svg"
+
+                # Run mmdc (Mermaid CLI)
+                result = subprocess.run(
+                    [
+                        "mmdc",
+                        "-i",
+                        mmd_file.name,
+                        "-o",
+                        str(output_path),
+                        "-c",
+                        config_path,
+                        "-p",
+                        puppeteer_path,
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+
+                # Clean up temporary file
+                os.unlink(mmd_file.name)
+
+                if result.returncode != 0:
+                    return False, f"Mermaid CLI error: {result.stderr}", None
+
+                return True, None, output_path
+
+        except subprocess.CalledProcessError as e:
+            return False, f"Failed to run Mermaid CLI: {e!s}", None
+        except Exception as e:
+            return False, f"Error generating image: {e!s}", None
 
 
 class PDFGenerator:
