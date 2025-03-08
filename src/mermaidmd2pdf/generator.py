@@ -72,6 +72,7 @@ class ImageGenerator:
                         str(output_path),
                         "-c",
                         config_file.name,
+                        "--no-sandbox",
                     ],
                     capture_output=True,
                     text=True,
