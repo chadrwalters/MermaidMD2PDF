@@ -30,8 +30,9 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc texlive-xetex librsvg2-bin chromium-browser
-          npm install -g @mermaid-js/mermaid-cli
+          sudo apt-get install -y pandoc texlive-xetex librsvg2-bin chromium-browser nodejs npm
+          npm install -g @mermaid-js/mermaid-cli puppeteer
+          sudo chown -R $USER:$USER /usr/local/lib/node_modules/@mermaid-js
 
       - name: Install uv
         run: |
