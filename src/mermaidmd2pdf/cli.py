@@ -144,15 +144,10 @@ def create_pdf(
 @click.argument("input_file", type=click.Path(exists=True))
 @click.argument("output_file", type=click.Path())
 @click.option(
-    "--template",
-    type=click.Path(exists=True),
-    help="Custom LaTeX template file",
-)
-@click.option(
     "--theme",
     type=click.Choice(["light", "dark"]),
     default="light",
-    help="Theme for Mermaid diagrams",
+    help="Theme for the generated PDF",
 )
 @click.option(
     "--debug",
@@ -163,9 +158,8 @@ def create_pdf(
 def main(
     input_file: str,
     output_file: str,
-    template: Optional[str] = None,
-    theme: str = "light",
-    debug: bool = False,
+    theme: str,
+    debug: bool,
 ) -> None:
     """Convert Markdown with Mermaid diagrams to PDF."""
     # Configure logging
@@ -189,7 +183,7 @@ def main(
 
     # Process the file
     try:
-        generator = PDFGenerator(template=template)
+        generator = PDFGenerator()
         generator.convert(input_file, output_file)
         logger.info(f"Successfully converted {input_file} to {output_file}")
     except Exception as e:

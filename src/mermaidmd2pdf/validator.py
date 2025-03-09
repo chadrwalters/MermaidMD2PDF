@@ -37,29 +37,35 @@ class FileValidator:
         """Validate the output PDF file path.
 
         Args:
-            file_path: Path to the output file
+            file_path: Path to the output PDF file
 
         Returns:
             Tuple of (is_valid, error_message)
         """
         error_message = None
-        path = Path(file_path)
 
-        # Check if parent directory exists and is writable
-        parent = path.parent
-        if not parent.exists():
-            try:
-                parent.mkdir(parents=True, exist_ok=True)
-            except Exception as e:
-                error_message = f"Cannot create output directory: {e}"
-        elif not os.access(parent, os.W_OK):
-            error_message = f"Cannot write to output directory: {parent}"
+        try:
+            # Check if parent directory exists and is writable
+            parent_dir = os.path.dirname(file_path)
+            if parent_dir and not os.path.exists(parent_dir):
+                try:
+                    os.makedirs(parent_dir)
+                except OSError as e:
+                    error_message = f"Failed to create output directory: {e}"
+                    return False, error_message
 
-        # Check if output file is writable
-        if path.exists():
-            if not path.is_file():
-                error_message = f"Output path exists but is not a file: {file_path}"
-            elif not os.access(path, os.W_OK):
-                error_message = f"Cannot write to existing output file: {file_path}"
+            # Check if output file is writable
+            if os.path.exists(file_path):
+                if not os.access(file_path, os.W_OK):
+                    error_message = f"Output file {file_path} is not writable"
+                    return False, error_message
+            # Check if parent directory is writable
+            elif not os.access(os.path.dirname(file_path), os.W_OK):
+                error_message = f"Parent directory of {file_path} is not writable"
+                return False, error_message
 
-        return (True, None) if error_message is None else (False, error_message)
+            return True, None
+
+        except Exception as e:
+            error_message = f"Error validating output file: {e}"
+            return False, error_message
