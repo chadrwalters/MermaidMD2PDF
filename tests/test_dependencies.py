@@ -58,9 +58,10 @@ def test_check_python_packages_missing() -> None:
 
 def test_verify_all_success() -> None:
     """Test complete dependency verification when all dependencies are satisfied."""
-    with patch("shutil.which", return_value="/usr/local/bin/pandoc"), patch(
-        "importlib.metadata.version"
-    ) as mock_version:
+    with (
+        patch("shutil.which", return_value="/usr/local/bin/pandoc"),
+        patch("importlib.metadata.version") as mock_version,
+    ):
         mock_version.return_value = (
             "60.2"  # This version satisfies all package requirements
         )
@@ -81,9 +82,10 @@ def test_verify_all_missing_pandoc() -> None:
 
 def test_verify_all_missing_packages() -> None:
     """Test complete dependency verification with missing Python packages."""
-    with patch("shutil.which", return_value="/usr/local/bin/pandoc"), patch(
-        "importlib.metadata.version"
-    ) as mock_version:
+    with (
+        patch("shutil.which", return_value="/usr/local/bin/pandoc"),
+        patch("importlib.metadata.version") as mock_version,
+    ):
         mock_version.side_effect = importlib.metadata.PackageNotFoundError()
         checker = DependencyChecker()
         is_satisfied, error = checker.verify_all()

@@ -74,8 +74,9 @@ def test_generate_pdf_success(
             return subprocess.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
         return subprocess.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
 
-    with patch("sys.stdout", new=io.StringIO()) as fake_output, patch(
-        "subprocess.run", side_effect=mock_run
+    with (
+        patch("sys.stdout", new=io.StringIO()) as fake_output,
+        patch("subprocess.run", side_effect=mock_run),
     ):
         success, error = PDFGenerator.generate_pdf(
             markdown_text, diagram_images, output_path, title="Test Document"
@@ -111,8 +112,9 @@ def test_generate_pdf_image_failure(temp_output_dir: Path) -> None:
             )
         return subprocess.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
 
-    with patch("sys.stdout", new=io.StringIO()) as fake_output, patch(
-        "subprocess.run", side_effect=mock_run
+    with (
+        patch("sys.stdout", new=io.StringIO()) as fake_output,
+        patch("subprocess.run", side_effect=mock_run),
     ):
         success, error = PDFGenerator.generate_pdf(
             markdown_text, diagram_images, output_path, title="Test Document"
@@ -147,8 +149,9 @@ def test_generate_pdf_pandoc_failure(
             )
         return subprocess.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
 
-    with patch("sys.stdout", new=io.StringIO()) as fake_output, patch(
-        "subprocess.run", side_effect=mock_run
+    with (
+        patch("sys.stdout", new=io.StringIO()) as fake_output,
+        patch("subprocess.run", side_effect=mock_run),
     ):
         success, error = PDFGenerator.generate_pdf(
             markdown_text, diagram_images, output_path, title="Test Document"
@@ -220,9 +223,11 @@ def test_generate_pdf_cleanup(
             if mock_temp_path.exists():
                 mock_temp_path.unlink()
 
-    with patch("sys.stdout", new=io.StringIO()), patch(
-        "subprocess.run", side_effect=mock_run
-    ), patch("tempfile.NamedTemporaryFile", MockTempFile):
+    with (
+        patch("sys.stdout", new=io.StringIO()),
+        patch("subprocess.run", side_effect=mock_run),
+        patch("tempfile.NamedTemporaryFile", MockTempFile),
+    ):
         success, error = PDFGenerator.generate_pdf(
             markdown_text, diagram_images, output_path, title="Test Document"
         )
@@ -249,8 +254,9 @@ def test_generate_pdf_no_diagrams(temp_output_dir: Path) -> None:
             return subprocess.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
         return subprocess.CompletedProcess(cmd, returncode=0, stdout="", stderr="")
 
-    with patch("sys.stdout", new=io.StringIO()) as fake_output, patch(
-        "subprocess.run", side_effect=mock_run
+    with (
+        patch("sys.stdout", new=io.StringIO()) as fake_output,
+        patch("subprocess.run", side_effect=mock_run),
     ):
         success, error = PDFGenerator.generate_pdf(
             markdown_text, {}, output_path, title="Test Document"
