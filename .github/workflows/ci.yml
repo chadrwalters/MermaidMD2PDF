@@ -15,6 +15,10 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10", "3.11"]
+    env:
+      PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: true
+      CHROME_BIN: /usr/bin/chromium-browser
+      PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium-browser
     steps:
       - uses: actions/checkout@v4
 
@@ -28,6 +32,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-xetex librsvg2-bin
           npm install -g @mermaid-js/mermaid-cli
+          # Configure Chrome to run without sandbox in CI
+          sudo apt-get install -y chromium-browser
 
       - name: Install uv
         run: |
