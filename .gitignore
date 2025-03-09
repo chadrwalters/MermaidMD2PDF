@@ -27,18 +27,35 @@ env/
 venv/
 ENV/
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+.yarn-integrity
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sublime-workspace
+*.sublime-project
 
-# Project specific
-.history/
-config.toml
-output/
-*_backup/
-config.toml
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
 # Testing
 .coverage
@@ -48,12 +65,35 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 coverage_html/
-conversations.json
-users.json
 
-# DS_Store
-.DS_Store
-**/.DS_Store
+# Documentation
+docs/_build/
+site/
+_build/
+
+# Project specific
+.history/
+local-research/
+export/
+.cursor/
+.repo*
+*.log
+*.tmp
+*.bak
+*.swp
+*~
+
+# Sensitive data
+.env
+.secrets
+.pypirc
+*.pem
+*.key
+credentials.json
+token.json
+token.pickle
+*.token
+config.ini
 
 # Rule summaries
 .cursor/rules/**/*.summary.json
@@ -61,19 +101,7 @@ users.json
 .cursor/rules/summaries/
 
 # Gmail to Bear specific
-credentials.json
-token.json
-token.pickle
-*.token
-config.ini
 processed_emails.txt
-*.pem
-*.key
-MagicMock/
-
-# Sensitive data
-.env
-.secrets
 
 # Cache files
 .cm/cache/
@@ -83,13 +111,3 @@ MagicMock/
 
 # Configuration files
 config.toml
-
-.repo*
-
-local-research/
-export/
-
-.cursor/
-
-.pypirc
-.pypirc
