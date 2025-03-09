@@ -8,6 +8,9 @@ from mermaidmd2pdf.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Constants
+MIN_WORDS_FOR_DIRECTION = 2
+
 
 @dataclass(frozen=True)  # Make the dataclass immutable
 class MermaidDiagram:
@@ -66,58 +69,39 @@ class MermaidProcessor:
             "gantt": {"name": "gantt", "min_lines": 2},
         }
 
-    def validate_diagram(self, diagram: MermaidDiagram) -> Tuple[bool, Optional[str]]:
-        """Validate a Mermaid diagram.
+        self.diagram_pattern = re.compile(
+            r"```mermaid\n(.*?)\n```",
+            re.DOTALL,
+        )
 
-        This method performs several validation checks:
-        1. Verifies the diagram has non-empty content
-        2. Checks if it starts with a valid diagram type
-        3. For graph/flowchart types, ensures direction is specified
-        4. Verifies minimal content requirements are met
+    def validate_diagram(self, diagram: str) -> Tuple[bool, Optional[str]]:
+        """Validate a Mermaid diagram definition.
 
         Args:
-            diagram: The MermaidDiagram to validate
+            diagram: Diagram definition
 
         Returns:
             Tuple of (is_valid, error_message)
-            - is_valid: True if diagram passes all validation checks
-            - error_message: None if valid, description of the error if invalid
         """
-        # Basic validation: check if the diagram has content
-        content_lines = diagram.content.strip().split("\n")
-        if not content_lines or not content_lines[0].strip():
-            msg = f"Empty diagram at lines {diagram.start_line}-{diagram.end_line}"
-            logger.warning(msg)
+        lines = diagram.strip().split("\n")
+        if not lines:
             return False, "Empty diagram"
 
-        # Extract the first word and normalize it
-        first_line = content_lines[0].strip()
+        first_line = lines[0].strip()
+        if not first_line:
+            return False, "Empty first line"
+
         first_word = first_line.split()[0].lower()
 
         # Handle graph/flowchart with direction
         if first_word in ["graph", "flowchart"]:
-            if len(first_line.split()) < 2:
+            if len(first_line.split()) < MIN_WORDS_FOR_DIRECTION:
                 msg = (
-                    f"Missing direction for {first_word} diagram at lines "
-                    f"{diagram.start_line}-{diagram.end_line}"
+                    f"Missing direction for {first_word} diagram at lines {len(lines)}"
                 )
-                logger.warning(msg)
-                return False, f"Missing direction for {first_word} diagram"
-            return True, None
+                return False, msg
 
-        # Remove any trailing colon for diagram types like sequenceDiagram:
-        first_word = first_word.rstrip(":")
-
-        # Check if it's a known diagram type
-        if first_word in self.DIAGRAM_TYPES:
-            return True, None
-
-        msg = (
-            "Invalid diagram type at lines "
-            f"{diagram.start_line}-{diagram.end_line}: {first_word}"
-        )
-        logger.warning(msg)
-        return False, f"Invalid diagram type: {first_word}"
+        return True, None
 
     def process_markdown(self, content: str) -> Tuple[str, List[str]]:
         """Process Markdown text and validate Mermaid diagrams.
@@ -146,50 +130,19 @@ class MermaidProcessor:
             is_valid, error = self.validate_diagram(diagram)
             if not is_valid:
                 error_msg = (
-                    "Invalid Mermaid diagram at lines "
-                    f"{diagram.start_line}-{diagram.end_line}"
+                    f"Invalid Mermaid diagram at lines {len(diagram.split('\n'))}"
                 )
                 errors.append(error or error_msg)
 
         return content, errors
 
-    def extract_diagrams(self, content: str) -> List[MermaidDiagram]:
-        """Extract Mermaid diagrams from Markdown text.
-
-        This method uses regex patterns to find both fenced code blocks and inline
-        diagrams. For each match, it calculates the exact line numbers in the source
-        text for error reporting and diagram replacement.
+    def extract_diagrams(self, content: str) -> List[str]:
+        """Extract Mermaid diagrams from Markdown content.
 
         Args:
-            content: The Markdown text to process
+            content: Markdown content
 
         Returns:
-            List of MermaidDiagram objects, each containing the diagram content
-            and its location in the source text
+            List of diagram definitions
         """
-        diagrams = []
-        # Match both fenced code blocks and inline diagrams
-        patterns = [
-            (r"```mermaid\n(.*?)\n```", True),  # Fenced code blocks with newlines
-            (r"<mermaid>(.*?)</mermaid>", False),  # Inline diagrams without newlines
-        ]
-
-        for pattern, _is_fenced in patterns:
-            # Use re.DOTALL to make '.' match newlines, crucial for multi-line diagrams
-            for match in re.finditer(pattern, content, re.DOTALL):
-                # Calculate 1-based line numbers by counting newlines
-                start_line = content.count("\n", 0, match.start()) + 1
-                end_line = content.count("\n", 0, match.end()) + 1
-
-                diagram = MermaidDiagram(
-                    content=match.group(
-                        1
-                    ).strip(),  # Remove leading/trailing whitespace
-                    start_line=start_line,
-                    end_line=end_line,
-                    original_text=match.group(0),  # Keep original text for replacement
-                )
-                diagrams.append(diagram)
-                logger.debug(f"Extracted diagram at lines {start_line}-{end_line}")
-
-        return diagrams
+        return self.diagram_pattern.findall(content)

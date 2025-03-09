@@ -1,11 +1,7 @@
 """Dependency checking component for MermaidMD2PDF."""
 
-import importlib.metadata
-import shutil
 import subprocess
-from typing import Dict, List, Optional, Tuple
-
-from packaging.specifiers import SpecifierSet
+from typing import ClassVar, Dict, List, Optional, Tuple
 
 from mermaidmd2pdf.logging import get_logger
 
@@ -15,40 +11,43 @@ logger = get_logger(__name__)
 class DependencyChecker:
     """Checks for required system and Python dependencies."""
 
-    REQUIRED_PACKAGES: Dict[str, str] = {
+    REQUIRED_PACKAGES: ClassVar[Dict[str, str]] = {
         "click": ">=8.0.0",
         "pytest": ">=7.0.0",
         "pytest-cov": ">=4.0.0",
     }
 
     def check_pandoc(self) -> Tuple[bool, Optional[str]]:
-        """Check if Pandoc is installed.
+        """Check if Pandoc is installed and accessible.
 
         Returns:
             Tuple of (is_available, error_message)
         """
-        pandoc_path = shutil.which("pandoc")
-        if not pandoc_path:
+        try:
+            subprocess.run(["pandoc", "--version"], capture_output=True, check=True)
+            return True, None
+        except subprocess.CalledProcessError:
+            return False, "Pandoc is not installed or not accessible"
+        except FileNotFoundError:
             return False, "Pandoc is not installed"
-        return True, None
 
-    def check_python_packages(self) -> Tuple[bool, List[str]]:
+    def check_python_packages(self) -> Tuple[bool, Optional[str]]:
         """Check if required Python packages are installed.
 
         Returns:
-            Tuple of (is_satisfied, missing_packages)
+            Tuple of (is_available, error_message)
         """
-        missing_packages = []
-        for package, version_spec in self.REQUIRED_PACKAGES.items():
-            try:
-                current_version = importlib.metadata.version(package)
-                spec_set = SpecifierSet(version_spec)
-                if not spec_set.contains(current_version):
-                    missing_packages.append(f"{package}{version_spec}")
-            except importlib.metadata.PackageNotFoundError:
-                missing_packages.append(f"{package}{version_spec}")
+        import pkg_resources
 
-        return not bool(missing_packages), missing_packages
+        for package, version in self.REQUIRED_PACKAGES.items():
+            try:
+                pkg_resources.require(f"{package}{version}")
+            except pkg_resources.VersionConflict:
+                return False, f"Package {package} version conflict"
+            except pkg_resources.DistributionNotFound:
+                return False, f"Package {package} is not installed"
+
+        return True, None
 
     def verify_all(self) -> Tuple[bool, Optional[str]]:
         """Verify all required dependencies.
