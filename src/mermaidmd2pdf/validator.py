@@ -42,6 +42,7 @@ class FileValidator:
         Returns:
             Tuple of (is_valid, error_message)
         """
+        error_msg = None
         try:
             # Check if parent directory exists and is writable
             parent_dir = os.path.dirname(file_path)
@@ -49,17 +50,18 @@ class FileValidator:
                 try:
                     os.makedirs(parent_dir)
                 except OSError as e:
-                    return False, f"Failed to create output directory: {e}"
+                    error_msg = f"Failed to create output directory: {e}"
 
             # Check if output file is writable
-            if os.path.exists(file_path):
-                if not os.access(file_path, os.W_OK):
-                    return False, f"Output file {file_path} is not writable"
-            # Check if parent directory is writable
-            elif not os.access(os.path.dirname(file_path), os.W_OK):
-                return False, f"Parent directory of {file_path} is not writable"
-
-            return True, None
+            if not error_msg:
+                if os.path.exists(file_path):
+                    if not os.access(file_path, os.W_OK):
+                        error_msg = f"Output file {file_path} is not writable"
+                # Check if parent directory is writable
+                elif not os.access(os.path.dirname(file_path), os.W_OK):
+                    error_msg = f"Parent directory of {file_path} is not writable"
 
         except Exception as e:
-            return False, f"Error validating output file: {e}"
+            error_msg = f"Error validating output file: {e}"
+
+        return (True, None) if not error_msg else (False, error_msg)

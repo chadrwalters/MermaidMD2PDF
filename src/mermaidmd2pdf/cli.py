@@ -1,7 +1,7 @@
 """Command-line interface for MermaidMD2PDF."""
 
-import logging
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -17,6 +17,15 @@ logger = get_logger(__name__)
 
 # Default configuration
 DEFAULT_CACHE_SIZE = 100  # Number of diagrams to cache
+
+
+@dataclass
+class Config:
+    """Configuration for PDF generation."""
+
+    theme: str = "light"
+    debug: bool = False
+    quiet: bool = False
 
 
 def validate_environment() -> None:
@@ -81,7 +90,7 @@ def process_markdown_content(input_path: Path) -> Tuple[str, List[MermaidDiagram
 
     diagrams = processor.extract_diagrams(content)
     if not diagrams:
-        logger.info("No Mermaid diagrams found in the document")
+        logger.info("i  No Mermaid diagrams found in the document")
 
     return processed_text, diagrams
 
@@ -140,6 +149,10 @@ def create_pdf(
     logger.info(f"✨ Successfully generated PDF: {output_path}")
 
 
+def setup_logging(debug: bool, quiet: bool) -> None:
+    """Set up logging based on the configuration."""
+
+
 @click.command()
 @click.argument("input_file", type=click.Path(exists=True))
 @click.argument("output_file", type=click.Path())
@@ -162,12 +175,8 @@ def main(
     debug: bool,
 ) -> None:
     """Convert Markdown with Mermaid diagrams to PDF."""
-    # Configure logging
-    log_level = logging.DEBUG if debug else logging.INFO
-    logging.basicConfig(
-        level=log_level,
-        format="%(levelname)s: %(message)s",
-    )
+    config = Config(theme=theme, debug=debug)
+    setup_logging(config.debug, config.quiet)
 
     # Validate files
     validator = FileValidator()
