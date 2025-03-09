@@ -1,0 +1,121 @@
+name: Version Management
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: "Type of version bump (major, minor, patch)"
+        required: true
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install semantic-version packaging
+
+      - name: Validate current versions
+        run: |
+          python scripts/validate_version.py
+
+      - name: Get current version
+        id: get_version
+        run: |
+          CURRENT_VERSION=$(python -c "import mermaidmd2pdf; print(mermaidmd2pdf.__version__)")
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Calculate new version
+        id: new_version
+        run: |
+          CURRENT_VERSION=${{ steps.get_version.outputs.current_version }}
+          VERSION_TYPE=${{ github.event.inputs.version_type }}
+
+          # Split version into major.minor.patch
+          IFS='.' read -r -a version_parts <<< "$CURRENT_VERSION"
+          MAJOR="${version_parts[0]}"
+          MINOR="${version_parts[1]}"
+          PATCH="${version_parts[2]}"
+
+          # Increment appropriate part based on version_type
+          case $VERSION_TYPE in
+            "major")
+              NEW_VERSION="$((MAJOR + 1)).0.0"
+              ;;
+            "minor")
+              NEW_VERSION="$MAJOR.$((MINOR + 1)).0"
+              ;;
+            "patch")
+              NEW_VERSION="$MAJOR.$MINOR.$((PATCH + 1))"
+              ;;
+          esac
+
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update version in pyproject.toml
+        run: |
+          sed -i "s/^version = \".*\"/version = \"${{ steps.new_version.outputs.new_version }}\"/" pyproject.toml
+
+      - name: Update version in package.json
+        run: |
+          sed -i "s/\"version\": \".*\"/\"version\": \"${{ steps.new_version.outputs.new_version }}\"/" package.json
+
+      - name: Update version in __init__.py
+        run: |
+          sed -i "s/^__version__ = \".*\"/__version__ = \"${{ steps.new_version.outputs.new_version }}\"/" src/mermaidmd2pdf/__init__.py
+
+      - name: Validate updated versions
+        run: |
+          python scripts/validate_version.py
+
+      - name: Get unreleased changes
+        id: get_changes
+        run: |
+          python scripts/update_changelog.py --get-unreleased > unreleased_changes.txt
+          echo "changes<<EOF" >> $GITHUB_OUTPUT
+          cat unreleased_changes.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create version commit
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add pyproject.toml package.json src/mermaidmd2pdf/__init__.py
+          git commit -m "chore: bump version to ${{ steps.new_version.outputs.new_version }}"
+          git push
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.new_version.outputs.new_version }}
+          name: Release v${{ steps.new_version.outputs.new_version }}
+          draft: false
+          prerelease: false
+          body: |
+            ## Changes in v${{ steps.new_version.outputs.new_version }}
+
+            ${{ steps.get_changes.outputs.changes }}
+
+            See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

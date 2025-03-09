@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "mermaidmd2pdf"
-version = "0.1.0"
-description = "Convert Markdown files with Mermaid diagrams to PDF"
+version = "0.2.0"
+description = "Convert Markdown with Mermaid diagrams to PDF"
 authors = [
-    {name = "Chad Walters", email = "your.email@example.com"},
+    { name = "Chad Walters", email = "chad@example.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.8"
 license = "MIT"
 keywords = [
     "markdown",
@@ -39,10 +39,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/chadrwalters/MermaidMD2PDF"
-Documentation = "https://github.com/chadrwalters/MermaidMD2PDF#readme"
-Repository = "https://github.com/chadrwalters/MermaidMD2PDF.git"
-Issues = "https://github.com/chadrwalters/MermaidMD2PDF/issues"
+Homepage = "https://github.com/chadwalters/mermaidmd2pdf"
+Documentation = "https://github.com/chadwalters/MermaidMD2PDF#readme"
+Repository = "https://github.com/chadwalters/mermaidmd2pdf.git"
+Issues = "https://github.com/chadwalters/mermaidmd2pdf/issues"
 
 [project.optional-dependencies]
 dev = [
@@ -51,8 +51,7 @@ dev = [
     "black>=23.0.0",
     "isort>=5.0.0",
     "mypy>=1.0.0",
-    "ruff>=0.0.1",
-    "psutil>=5.9.0",  # For performance tests
+    "ruff>=0.1.0",
 ]
 
 [project.scripts]
@@ -79,31 +78,22 @@ line_length = 88
 multi_line_output = 3
 
 [tool.mypy]
-python_version = "3.10"
-strict = true
+python_version = "3.8"
 warn_return_any = true
 warn_unused_configs = true
-allow_new_syntax = true
+disallow_untyped_defs = true
+check_untyped_defs = true
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py38"
 
 [tool.ruff.lint]
-select = [
-    "E",   # pycodestyle errors
-    "W",   # pycodestyle warnings
-    "F",   # pyflakes
-    "I",   # isort
-    "B",   # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "UP",  # pyupgrade
-]
-ignore = [
-    "UP006",  # Use `list` instead of `List` for type annotations
-    "UP007",  # Use `X | Y` for type annotations
-    "UP035",  # Use `dict` instead of `Dict` for type annotations
-]
+select = ["E", "F", "I", "N", "W", "B", "UP", "PL", "RUF"]
+ignore = []
+
+[tool.ruff.lint.isort]
+known-first-party = ["mermaidmd2pdf"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -141,5 +131,6 @@ fail_under = 75
 show_missing = true
 
 [tool.pytest.ini_options]
-addopts = "--cov=mermaidmd2pdf --cov-report=term-missing --cov-fail-under=75"
 testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=mermaidmd2pdf --cov-report=term-missing"

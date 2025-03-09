@@ -1,10 +1,21 @@
 {
   "name": "mermaidmd2pdf",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Convert Markdown files with Mermaid diagrams to PDF",
+  "description": "Convert Markdown with Mermaid diagrams to PDF",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "markdown",
+    "mermaid",
+    "pdf",
+    "conversion"
+  ],
+  "author": "",
+  "license": "MIT",
   "dependencies": {
-    "@mermaid-js/mermaid-cli": "10.8.0",
-    "puppeteer": "22.3.0"
+    "@mermaid-js/mermaid-cli": "^10.8.0"
   }
 }

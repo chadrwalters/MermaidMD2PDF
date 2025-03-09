@@ -25,7 +25,28 @@ jobs:
           python -m pip install safety
           safety check
 
+  version:
+    needs: [security]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install packaging
+
+      - name: Validate versions
+        run: |
+          python scripts/validate_version.py
+
   test:
+    needs: [security, version]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -117,7 +138,7 @@ jobs:
           uv run mypy src/
         working-directory: ${{ github.workspace }}
 
-      - name: Run tests with coverage
+      - name: Run tests
         run: |
           uv run pytest -vl \
             --cov=mermaidmd2pdf \
@@ -134,7 +155,7 @@ jobs:
         continue-on-error: true
 
   build:
-    needs: [test, security]
+    needs: [test, security, version]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
     steps:
