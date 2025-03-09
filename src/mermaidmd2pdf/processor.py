@@ -130,7 +130,7 @@ class MermaidProcessor:
             is_valid, error = self.validate_diagram(diagram)
             if not is_valid:
                 error_msg = (
-                    f"Invalid Mermaid diagram at lines {len(diagram.split('\n'))}"
+                    f"Invalid Mermaid diagram at lines {len(diagram.splitlines())}"
                 )
                 errors.append(error or error_msg)
 
