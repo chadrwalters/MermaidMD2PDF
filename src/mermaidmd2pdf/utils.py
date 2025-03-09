@@ -4,9 +4,8 @@ import contextlib
 import os
 import shutil
 import tempfile
-from collections.abc import Generator
 from pathlib import Path
-from typing import Optional
+from typing import Generator, Optional
 
 from mermaidmd2pdf.logging import get_logger
 
