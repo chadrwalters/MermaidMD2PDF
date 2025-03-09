@@ -27,12 +27,23 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y pandoc texlive-xetex librsvg2-bin chromium-browser nodejs npm
-          npm install -g @mermaid-js/mermaid-cli puppeteer
+
+      - name: Install mermaid-cli and verify installation
+        run: |
+          npm install -g @mermaid-js/mermaid-cli@10.8.0 puppeteer@22.3.0
           sudo chown -R $USER:$USER /usr/local/lib/node_modules/@mermaid-js
+          ls -la /usr/local/lib/node_modules/@mermaid-js/mermaid-cli/dist/
+          mmdc --version
 
       - name: Install uv
         run: |
@@ -60,6 +71,10 @@ jobs:
           echo "Python version:"
           python --version
           echo "PYTHONPATH: $PYTHONPATH"
+          echo "Node.js version:"
+          node --version
+          echo "NPM version:"
+          npm --version
         working-directory: ${{ github.workspace }}
 
       - name: Create virtual environment and install package
