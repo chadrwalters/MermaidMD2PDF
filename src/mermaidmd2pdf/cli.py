@@ -93,17 +93,7 @@ def process_markdown_content(input_path: Path) -> Tuple[str, List[MermaidDiagram
         logger.info("i  No Mermaid diagrams found in the document")
         return processed_text, []
 
-    mermaid_diagrams = [
-        MermaidDiagram(
-            content=diagram,
-            start_line=1,  # TODO: Track actual line numbers
-            end_line=len(diagram.splitlines()),
-            original_text=f"```mermaid\n{diagram}\n```",
-        )
-        for diagram in diagrams
-    ]
-
-    return processed_text, mermaid_diagrams
+    return processed_text, diagrams
 
 
 def generate_diagram_images(

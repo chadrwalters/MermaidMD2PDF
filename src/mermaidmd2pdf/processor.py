@@ -69,21 +69,25 @@ class MermaidProcessor:
             "gantt": {"name": "gantt", "min_lines": 2},
         }
 
-        self.diagram_pattern = re.compile(
+        self.fenced_pattern = re.compile(
             r"```mermaid\n(.*?)\n```",
             re.DOTALL,
         )
+        self.inline_pattern = re.compile(
+            r"<mermaid>\n(.*?)\n</mermaid>",
+            re.DOTALL,
+        )
 
-    def validate_diagram(self, diagram: str) -> Tuple[bool, Optional[str]]:
+    def validate_diagram(self, diagram: MermaidDiagram) -> Tuple[bool, Optional[str]]:
         """Validate a Mermaid diagram definition.
 
         Args:
-            diagram: Diagram definition
+            diagram: MermaidDiagram object to validate
 
         Returns:
             Tuple of (is_valid, error_message)
         """
-        lines = diagram.strip().split("\n")
+        lines = diagram.content.strip().split("\n")
         if not lines:
             return False, "Empty diagram"
 
@@ -97,7 +101,8 @@ class MermaidProcessor:
         if first_word in ["graph", "flowchart"]:
             if len(first_line.split()) < MIN_WORDS_FOR_DIRECTION:
                 msg = (
-                    f"Missing direction for {first_word} diagram at lines {len(lines)}"
+                    f"Missing direction for {first_word} diagram at lines "
+                    f"{diagram.start_line}-{diagram.end_line}"
                 )
                 return False, msg
 
@@ -130,19 +135,52 @@ class MermaidProcessor:
             is_valid, error = self.validate_diagram(diagram)
             if not is_valid:
                 error_msg = (
-                    f"Invalid Mermaid diagram at lines {len(diagram.splitlines())}"
+                    f"Invalid Mermaid diagram at lines "
+                    f"{diagram.start_line}-{diagram.end_line}"
                 )
                 errors.append(error or error_msg)
 
         return content, errors
 
-    def extract_diagrams(self, content: str) -> List[str]:
+    def extract_diagrams(self, content: str) -> List[MermaidDiagram]:
         """Extract Mermaid diagrams from Markdown content.
 
         Args:
             content: Markdown content
 
         Returns:
-            List of diagram definitions
+            List of MermaidDiagram objects
         """
-        return self.diagram_pattern.findall(content)
+        diagrams = []
+
+        # Extract fenced diagrams
+        for match in self.fenced_pattern.finditer(content):
+            diagram_content = match.group(1)
+            start_line = content[: match.start()].count("\n") + 1
+            end_line = start_line + diagram_content.count("\n") + 2
+            original_text = match.group(0)
+            diagrams.append(
+                MermaidDiagram(
+                    content=diagram_content,
+                    start_line=start_line,
+                    end_line=end_line,
+                    original_text=original_text,
+                )
+            )
+
+        # Extract inline diagrams
+        for match in self.inline_pattern.finditer(content):
+            diagram_content = match.group(1)
+            start_line = content[: match.start()].count("\n") + 1
+            end_line = start_line + diagram_content.count("\n") + 2
+            original_text = match.group(0)
+            diagrams.append(
+                MermaidDiagram(
+                    content=diagram_content,
+                    start_line=start_line,
+                    end_line=end_line,
+                    original_text=original_text,
+                )
+            )
+
+        return diagrams
