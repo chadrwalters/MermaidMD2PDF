@@ -36,13 +36,12 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc texlive-xetex librsvg2-bin chromium-browser nodejs npm
+          sudo apt-get install -y pandoc texlive-xetex librsvg2-bin chromium-browser
 
-      - name: Install mermaid-cli and verify installation
+      - name: Install Node.js dependencies
         run: |
-          npm install -g @mermaid-js/mermaid-cli@10.8.0 puppeteer@22.3.0
-          sudo chown -R $USER:$USER /usr/local/lib/node_modules/@mermaid-js
-          ls -la /usr/local/lib/node_modules/@mermaid-js/mermaid-cli/dist/
+          npm ci
+          sudo ln -s $(pwd)/node_modules/.bin/mmdc /usr/local/bin/mmdc
           mmdc --version
 
       - name: Install uv
@@ -75,6 +74,8 @@ jobs:
           node --version
           echo "NPM version:"
           npm --version
+          echo "Mermaid CLI version:"
+          mmdc --version
         working-directory: ${{ github.workspace }}
 
       - name: Create virtual environment and install package
