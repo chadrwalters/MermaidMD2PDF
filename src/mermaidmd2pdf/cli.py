@@ -145,36 +145,31 @@ def create_pdf(
 @click.argument("output_file", type=click.Path())
 @click.option(
     "--template",
-    "-t",
     type=click.Path(exists=True),
     help="Custom LaTeX template file",
 )
 @click.option(
-    "--debug",
-    "-d",
-    is_flag=True,
-    help="Enable debug logging",
-    default=False,
+    "--theme",
+    type=click.Choice(["light", "dark"]),
+    default="light",
+    help="Theme for Mermaid diagrams",
 )
 @click.option(
-    "--quiet",
-    "-q",
+    "--debug",
     is_flag=True,
-    help="Suppress output messages",
+    help="Enable debug logging",
     default=False,
 )
 def main(
     input_file: str,
     output_file: str,
     template: Optional[str] = None,
+    theme: str = "light",
     debug: bool = False,
-    quiet: bool = False,
 ) -> None:
     """Convert Markdown with Mermaid diagrams to PDF."""
     # Configure logging
     log_level = logging.DEBUG if debug else logging.INFO
-    if quiet:
-        log_level = logging.ERROR
     logging.basicConfig(
         level=log_level,
         format="%(levelname)s: %(message)s",

@@ -13,7 +13,7 @@ class FileValidator:
     """Validates input and output files."""
 
     def validate_input_file(self, file_path: str) -> Tuple[bool, Optional[str]]:
-        """Validate the input file path.
+        """Validate the input Markdown file.
 
         Args:
             file_path: Path to the input file
@@ -28,13 +28,8 @@ class FileValidator:
             if not path.is_file():
                 return False, f"Input path is not a file: {file_path}"
             if not os.access(path, os.R_OK):
-                return False, f"Input file is not readable: {file_path}"
-            if path.suffix.lower() != ".md":
-                return False, f"Input file {path} is not a Markdown file"
-
-            logger.debug(f"Input file {path} is valid")
+                return False, f"Cannot read input file: {file_path}"
             return True, None
-
         except Exception as e:
             return False, f"Error validating input file: {e}"
 
@@ -47,25 +42,24 @@ class FileValidator:
         Returns:
             Tuple of (is_valid, error_message)
         """
-        try:
-            path = Path(file_path)
-            parent = path.parent
-            error_message = None
+        error_message = None
+        path = Path(file_path)
 
-            # Check parent directory
-            if parent.exists() and not parent.is_dir():
-                error_message = f"Parent path is not a directory: {parent}"
-            elif not os.access(parent, os.W_OK):
-                error_message = f"Parent directory is not writable: {parent}"
-            # Check output file
-            elif path.exists():
-                if not path.is_file():
-                    error_message = f"Output path exists but is not a file: {file_path}"
-                elif not os.access(path, os.W_OK):
-                    error_message = (
-                        f"Output file exists but is not writable: {file_path}"
-                    )
+        # Check if parent directory exists and is writable
+        parent = path.parent
+        if not parent.exists():
+            try:
+                parent.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                error_message = f"Cannot create output directory: {e}"
+        elif not os.access(parent, os.W_OK):
+            error_message = f"Cannot write to output directory: {parent}"
 
-            return (True, None) if error_message is None else (False, error_message)
-        except Exception as e:
-            return False, f"Error validating output file: {e}"
+        # Check if output file is writable
+        if path.exists():
+            if not path.is_file():
+                error_message = f"Output path exists but is not a file: {file_path}"
+            elif not os.access(path, os.W_OK):
+                error_message = f"Cannot write to existing output file: {file_path}"
+
+        return (True, None) if error_message is None else (False, error_message)
