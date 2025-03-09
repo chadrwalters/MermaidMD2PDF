@@ -128,7 +128,17 @@ class ImageGenerator:
             Dictionary containing Puppeteer configuration with sandbox
             settings optimized for automation
         """
-        return {"args": ["--no-sandbox", "--disable-setuid-sandbox"]}
+        return {
+            "args": [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--allow-file-access-from-files",
+            ],
+            "executablePath": "/usr/bin/chromium-browser"
+            if os.path.exists("/usr/bin/chromium-browser")
+            else None,
+            "headless": "new",
+        }
 
     def _check_mmdc_available(self) -> Tuple[bool, Optional[str]]:
         """Check if Mermaid CLI (mmdc) is available.

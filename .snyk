@@ -1,0 +1,13 @@
+# Snyk (https://snyk.io) policy file
+# API Version: v1.25.0
+# Patch specific vulnerabilities that have a fix available
+patch:
+  'npm:puppeteer:20240216':
+    - '@mermaid-js/mermaid-cli@10.8.0 > puppeteer@22.3.0':
+        patched: '2024-03-09T00:00:00.000Z'
+# Ignore specific vulnerabilities
+ignore:
+  'npm:puppeteer:20240216':
+    - '@mermaid-js/mermaid-cli@10.8.0 > puppeteer@22.3.0':
+        reason: 'Known issue with Puppeteer in CI environment, mitigated by using system Chromium'
+        expires: '2024-04-09T00:00:00.000Z'

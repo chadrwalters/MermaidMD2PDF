@@ -1,0 +1,32 @@
+name: "CodeQL Config"
+
+disable-default-queries: false
+
+queries:
+  - uses: security-and-quality
+  - uses: python-security-and-quality.qls
+  - uses: javascript-security-and-quality.qls
+
+paths:
+  - src/
+  - tests/
+  - scripts/
+
+paths-ignore:
+  - "**/node_modules"
+  - "**/.venv"
+  - "**/__pycache__"
+  - "**/.pytest_cache"
+  - "**/.mypy_cache"
+  - "**/.ruff_cache"
+  - "**/dist"
+  - "**/build"
+  - "**/.git"
+
+languages:
+  python:
+    build-command: |
+      python -m pip install -e .
+      python -m pip install ".[dev]"
+  javascript:
+    build-command: npm ci
