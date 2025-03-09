@@ -1,0 +1,28 @@
+{
+  "theme": "default",
+  "flowchart": {
+    "useMaxWidth": true,
+    "htmlLabels": true,
+    "curve": "basis",
+    "defaultRenderer": "dagre-d3"
+  },
+  "sequence": {
+    "useMaxWidth": true,
+    "showSequenceNumbers": false,
+    "actorMargin": 50,
+    "boxMargin": 10,
+    "mirrorActors": false,
+    "bottomMarginAdj": 1,
+    "messageMargin": 35
+  },
+  "themeVariables": {
+    "fontFamily": "arial",
+    "fontSize": "16px",
+    "primaryColor": "#333333",
+    "primaryTextColor": "#ffffff",
+    "primaryBorderColor": "#000000",
+    "lineColor": "#333333",
+    "secondaryColor": "#006100",
+    "tertiaryColor": "#fff"
+  }
+}

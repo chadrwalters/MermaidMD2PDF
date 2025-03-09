@@ -1,6 +1,5 @@
 """Image and PDF generator components for MermaidMD2PDF."""
 
-import json
 import os
 import subprocess
 import tempfile
@@ -50,66 +49,60 @@ class ImageGenerator:
 
         Returns:
             Tuple of (success, error_message, image_path)
-            - success: True if successful, False if failed
+            - success: True if image was generated successfully
             - error_message: None if successful, error description if failed
             - image_path: Path to generated image if successful, None if failed
         """
         try:
-            # Create temporary files for diagram, config, and puppeteer config
+            # Create unique filename for this diagram
+            output_file = output_dir / f"diagram_{hash(diagram.content)}.png"
+
+            # Get path to mermaid config file
+            config_path = Path(__file__).parent / "mermaid-config.json"
+            if not config_path.exists():
+                return False, "Mermaid config file not found", None
+
+            # Create temporary file for diagram content
             with tempfile.NamedTemporaryFile(
                 mode="w", suffix=".mmd", delete=False
-            ) as mmd_file, tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as config_file, tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False
-            ) as puppeteer_file:
-                # Write diagram content
+            ) as mmd_file:
                 mmd_file.write(diagram.content)
                 mmd_file.flush()
 
-                # Write config
-                json.dump(ImageGenerator._create_mermaid_config(), config_file)
-                config_file.flush()
-
-                # Write puppeteer config
-                json.dump(ImageGenerator._create_puppeteer_config(), puppeteer_file)
-                puppeteer_file.flush()
-
-                # Generate unique output filename
-                output_path = output_dir / f"diagram_{hash(diagram.content)}.svg"
+                cmd = [
+                    "mmdc",
+                    "-i",
+                    str(mmd_file.name),
+                    "-o",
+                    str(output_file),
+                    "--scale",
+                    "2",
+                    "--backgroundColor",
+                    "white",
+                    "--configFile",
+                    str(config_path),
+                ]
 
                 # Run mmdc (Mermaid CLI)
-                result = subprocess.run(
-                    [
-                        "mmdc",
-                        "-i",
-                        mmd_file.name,
-                        "-o",
-                        str(output_path),
-                        "-c",
-                        config_file.name,
-                        "-p",
-                        puppeteer_file.name,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
+                result = subprocess.run(cmd, check=True, capture_output=True, text=True)
 
-                # Clean up temporary files
+                # Clean up temporary file
                 os.unlink(mmd_file.name)
-                os.unlink(config_file.name)
-                os.unlink(puppeteer_file.name)
 
-                if result.returncode != 0:
-                    return False, f"Mermaid CLI error: {result.stderr}", None
+                if result.stderr and "error" in result.stderr.lower():
+                    print(f"⚠️  Warning: {result.stderr.strip()}")
 
-                return True, None, output_path
+                if output_file.exists() and output_file.stat().st_size > 0:
+                    return True, None, output_file
+                else:
+                    return False, "Generated image file is empty or missing", None
 
         except subprocess.CalledProcessError as e:
-            return False, f"Failed to run Mermaid CLI: {e!s}", None
+            error_msg = f"Failed to generate image: {e.stderr if e.stderr else str(e)}"
+            return False, error_msg, None
         except Exception as e:
-            return False, f"Error generating image: {e!s}", None
+            error_msg = f"Unexpected error: {e!s}"
+            return False, error_msg, None
 
     @staticmethod
     def generate_images(
@@ -132,57 +125,68 @@ class ImageGenerator:
 
         diagram_images = {}
         errors = []
+        total_diagrams = len(diagrams)
+
+        print(
+            "\n🔄 Processing "
+            f"{total_diagrams} Mermaid diagram{'s' if total_diagrams > 1 else ''}..."
+        )
 
         # Create output directory if it doesn't exist
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create shared config files
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as config_file, tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False
-        ) as puppeteer_file:
-            # Write config files once
-            json.dump(ImageGenerator._create_mermaid_config(), config_file)
-            config_file.flush()
-            json.dump(ImageGenerator._create_puppeteer_config(), puppeteer_file)
-            puppeteer_file.flush()
+        # Process diagrams in parallel
+        with ThreadPoolExecutor(
+            max_workers=min(len(diagrams), os.cpu_count() or 1)
+        ) as executor:
+            future_to_diagram = {
+                executor.submit(
+                    ImageGenerator.generate_image, diagram, output_dir
+                ): diagram
+                for diagram in diagrams
+            }
 
-            # Process diagrams in parallel
-            with ThreadPoolExecutor(
-                max_workers=min(len(diagrams), os.cpu_count() or 1)
-            ) as executor:
-                future_to_diagram = {
-                    executor.submit(
-                        ImageGenerator.generate_image_with_config,
-                        diagram,
-                        output_dir,
-                        config_file.name,
-                        puppeteer_file.name,
-                    ): diagram
-                    for diagram in diagrams
-                }
-
-                for future in as_completed(future_to_diagram):
-                    diagram = future_to_diagram[future]
-                    try:
-                        success, error, image_path = future.result()
-                        if success and image_path:
-                            diagram_images[diagram] = image_path
-                        if error:
-                            errors.append(
-                                "Failed to generate image for diagram at "
-                                f"line {diagram.start_line}: {error}"
-                            )
-                    except Exception as e:
-                        errors.append(
-                            "Failed to generate image for diagram at "
-                            f"line {diagram.start_line}: {e!s}"
+            completed = 0
+            for future in as_completed(future_to_diagram):
+                diagram = future_to_diagram[future]
+                completed += 1
+                try:
+                    success, error, image_path = future.result()
+                    if success and image_path:
+                        diagram_images[diagram] = image_path
+                        print(
+                            f"✅ Generated diagram {completed}/{total_diagrams} "
+                            f"(line {diagram.start_line})"
                         )
+                    if error:
+                        errors.append(
+                            f"Error in diagram at line {diagram.start_line}: {error}"
+                        )
+                        print(
+                            "❌ Failed to generate diagram "
+                            f"{completed}/{total_diagrams} "
+                            f"(line {diagram.start_line})"
+                        )
+                except Exception as e:
+                    errors.append(
+                        f"Error in diagram at line {diagram.start_line}: {e!s}"
+                    )
+                    print(
+                        "❌ Failed to generate diagram "
+                        f"{completed}/{total_diagrams} "
+                        f"(line {diagram.start_line})"
+                    )
 
-            # Clean up config files
-            os.unlink(config_file.name)
-            os.unlink(puppeteer_file.name)
+        if diagram_images:
+            print(
+                f"\n✨ Successfully generated {len(diagram_images)}/{total_diagrams} "
+                "diagrams"
+            )
+        if errors:
+            print(
+                "\n⚠️  Failed to generate "
+                f"{len(errors)} diagram{'s' if len(errors) > 1 else ''}"
+            )
 
         return diagram_images, errors
 
@@ -255,17 +259,65 @@ class PDFGenerator:
     """Generates PDFs from Markdown with embedded Mermaid diagrams."""
 
     @staticmethod
-    def generate_pdf(
-        input_path: Path,
-        output_path: Path,
-        diagrams: List[MermaidDiagram],
-    ) -> Tuple[bool, Optional[str]]:
-        """Generate a PDF from a Markdown file with embedded Mermaid diagrams.
+    def _check_pandoc_available() -> Tuple[bool, Optional[str]]:
+        """Check if Pandoc is available in the system.
+
+        Returns:
+            Tuple of (available, error_message)
+        """
+        try:
+            subprocess.run(
+                ["pandoc", "--version"],
+                capture_output=True,
+                check=True,
+            )
+            return True, None
+        except FileNotFoundError:
+            return False, "PDF generation failed:\n  • Pandoc not found"
+        except Exception as e:
+            return False, f"PDF generation failed:\n  • Error checking Pandoc: {e}"
+
+    @staticmethod
+    def _replace_diagrams_with_images(
+        markdown_text: str, diagram_images: Dict[MermaidDiagram, Path]
+    ) -> str:
+        """Replace Mermaid diagrams with image references.
 
         Args:
-            input_path: Path to input Markdown file
-            output_path: Path to output PDF file
-            diagrams: List of MermaidDiagrams found in the input file
+            markdown_text: Original Markdown text
+            diagram_images: Dictionary mapping diagrams to their image paths
+
+        Returns:
+            Modified Markdown text with diagrams replaced by image references
+        """
+        result = markdown_text
+
+        # Sort diagrams by start position in reverse order to avoid position shifts
+        sorted_diagrams = sorted(
+            diagram_images.keys(), key=lambda d: d.start_line, reverse=True
+        )
+
+        for diagram in sorted_diagrams:
+            image_path = diagram_images[diagram]
+            image_ref = f"![Diagram]({image_path})"
+            result = result.replace(diagram.original_text, image_ref)
+
+        return result
+
+    @staticmethod
+    def generate_pdf(
+        markdown_text: str,
+        diagram_images: Dict[MermaidDiagram, Path],
+        output_file: Path,
+        title: Optional[str] = None,
+    ) -> Tuple[bool, Optional[str]]:
+        """Generate a PDF from Markdown text with embedded diagrams.
+
+        Args:
+            markdown_text: The Markdown text to convert
+            diagram_images: Dictionary mapping diagrams to their image paths
+            output_file: Path where the PDF should be saved
+            title: Optional document title
 
         Returns:
             Tuple of (success, error_message)
@@ -273,65 +325,57 @@ class PDFGenerator:
             - error_message: None if successful, error description if failed
         """
         try:
-            # Create temporary directory for images
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_path = Path(temp_dir)
+            # Replace diagrams with image references
+            processed_text = PDFGenerator._replace_diagrams_with_images(
+                markdown_text, diagram_images
+            )
 
-                # Generate images for all diagrams
-                image_generator = ImageGenerator()
-                diagram_images, errors = image_generator.generate_images(
-                    diagrams, temp_path
+            # Create temporary Markdown file
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".md", delete=False
+            ) as temp_md:
+                # Add title if provided
+                if title:
+                    temp_md.write(f"% {title}\n\n")
+                temp_md.write(processed_text)
+                temp_md.flush()
+
+                # Build Pandoc command
+                cmd = [
+                    "pandoc",
+                    temp_md.name,
+                    "-o",
+                    str(output_file),
+                    "--pdf-engine=xelatex",
+                    "--standalone",
+                    "-V",
+                    "geometry:margin=1in",
+                    "-V",
+                    "documentclass:article",
+                    "-V",
+                    "papersize:a4",
+                ]
+
+                # Run Pandoc
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
+                if result.returncode != 0:
+                    return False, f"Pandoc error: {result.stderr}"
 
-                if errors:
-                    return False, f"Failed to generate images: {'; '.join(errors)}"
+                return True, None
 
-                # Read the markdown content
-                with open(input_path, encoding="utf-8") as f:
-                    content = f.read()
-
-                # Replace Mermaid code blocks with image references
-                for diagram, image_path in diagram_images.items():
-                    # Create relative path from markdown to image
-                    rel_path = os.path.relpath(image_path, input_path.parent)
-                    # Replace the mermaid code block with an image reference
-                    content = content.replace(
-                        f"```mermaid\n{diagram.content}\n```",
-                        f"![Diagram {diagram.start_line}]({rel_path})",
-                    )
-
-                # Write modified markdown to temporary file
-                with tempfile.NamedTemporaryFile(
-                    mode="w", suffix=".md", delete=False
-                ) as temp_md:
-                    temp_md.write(content)
-                    temp_md.flush()
-
-                    # Use pandoc to convert markdown to PDF
-                    result = subprocess.run(
-                        [
-                            "pandoc",
-                            temp_md.name,
-                            "-o",
-                            str(output_path),
-                            "--pdf-engine=weasyprint",
-                            "--standalone",
-                            "--embed-resources",
-                            "--metadata",
-                            'title="MermaidMD2PDF Document"',
-                        ],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-
-                    # Clean up temporary file
-                    os.unlink(temp_md.name)
-
-                    if result.returncode != 0:
-                        return False, f"Pandoc error: {result.stderr}"
-
-                    return True, None
-
+        except subprocess.CalledProcessError as e:
+            return False, f"Failed to run Pandoc: {e!s}"
+        except FileNotFoundError as e:
+            return False, f"Failed to run Pandoc: {e!s}"
         except Exception as e:
             return False, f"Error generating PDF: {e!s}"
+        finally:
+            # Clean up temporary file
+            if "temp_md" in locals():
+                temp_md.close()
+                Path(temp_md.name).unlink(missing_ok=True)

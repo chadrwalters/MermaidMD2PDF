@@ -11,8 +11,7 @@ import pytest
 
 from mermaidmd2pdf.cli import main
 from mermaidmd2pdf.dependencies import DependencyChecker
-from mermaidmd2pdf.generator import ImageGenerator
-from mermaidmd2pdf.pdf import PDFGenerator
+from mermaidmd2pdf.generator import ImageGenerator, PDFGenerator
 from mermaidmd2pdf.processor import MermaidProcessor
 from mermaidmd2pdf.validator import FileValidator
 
@@ -164,7 +163,6 @@ def process_document(input_path: Path, output_path: Path) -> Path:
     """Process a document from markdown to PDF."""
     validator = FileValidator()
     processor = MermaidProcessor()
-    generator = PDFGenerator()
 
     # Validate input and output
     is_valid, error = validator.validate_input_file(str(input_path))
@@ -197,7 +195,7 @@ def process_document(input_path: Path, output_path: Path) -> Path:
             raise ValueError(f"Failed to generate images: {'; '.join(errors)}")
 
         # Generate PDF
-        success, error = generator.generate_pdf(
+        success, error = PDFGenerator.generate_pdf(
             processed_text, diagram_images, output_path, title="MermaidMD2PDF Document"
         )
         if not success:

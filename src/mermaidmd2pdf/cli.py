@@ -6,8 +6,7 @@ from typing import Optional
 import click
 
 from mermaidmd2pdf.dependencies import DependencyChecker
-from mermaidmd2pdf.generator import ImageGenerator
-from mermaidmd2pdf.pdf import PDFGenerator
+from mermaidmd2pdf.generator import ImageGenerator, PDFGenerator
 from mermaidmd2pdf.processor import MermaidProcessor
 from mermaidmd2pdf.validator import FileValidator
 
@@ -68,8 +67,7 @@ def main(input_file: str, output_file: str, title: Optional[str] = None) -> None
 
     # Generate PDF
     output_path = Path(output_file)
-    pdf_generator = PDFGenerator()
-    success, error = pdf_generator.generate_pdf(
+    success, error = PDFGenerator.generate_pdf(
         processed_text, diagram_images, output_path, title=title
     )
     if not success:
