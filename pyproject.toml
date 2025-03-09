@@ -122,3 +122,24 @@ pdf_engine_opts = [
     "-halt-on-error",
 ]
 template_dir = "templates"
+
+[tool.coverage.run]
+source = ["src/mermaidmd2pdf"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
+fail_under = 75
+show_missing = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=mermaidmd2pdf --cov-report=term-missing --cov-fail-under=75"
+testpaths = ["tests"]
