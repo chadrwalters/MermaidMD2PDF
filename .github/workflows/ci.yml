@@ -30,10 +30,8 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y pandoc texlive-xetex librsvg2-bin
+          sudo apt-get install -y pandoc texlive-xetex librsvg2-bin chromium-browser
           npm install -g @mermaid-js/mermaid-cli
-          # Configure Chrome to run without sandbox in CI
-          sudo apt-get install -y chromium-browser
 
       - name: Install uv
         run: |
