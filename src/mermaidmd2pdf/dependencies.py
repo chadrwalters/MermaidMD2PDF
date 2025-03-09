@@ -31,23 +31,26 @@ class DependencyChecker:
         except FileNotFoundError:
             return False, "Pandoc is not installed"
 
-    def check_python_packages(self) -> Tuple[bool, Optional[str]]:
+    def check_python_packages(self) -> Tuple[bool, List[str]]:
         """Check if required Python packages are installed.
 
         Returns:
-            Tuple of (is_available, error_message)
+            Tuple of (is_available, missing_packages)
+            where missing_packages is a list of package names that are either
+            missing or have version conflicts
         """
         import pkg_resources
 
+        missing: List[str] = []
         for package, version in self.REQUIRED_PACKAGES.items():
             try:
-                pkg_resources.require(f"{package}{version}")
+                pkg_resources.require(f"{package}{version}")  # type: ignore
             except pkg_resources.VersionConflict:
-                return False, f"Package {package} version conflict"
+                missing.append(f"{package} (version conflict)")
             except pkg_resources.DistributionNotFound:
-                return False, f"Package {package} is not installed"
+                missing.append(package)
 
-        return True, None
+        return not bool(missing), missing
 
     def verify_all(self) -> Tuple[bool, Optional[str]]:
         """Verify all required dependencies.

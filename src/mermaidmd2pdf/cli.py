@@ -91,8 +91,19 @@ def process_markdown_content(input_path: Path) -> Tuple[str, List[MermaidDiagram
     diagrams = processor.extract_diagrams(content)
     if not diagrams:
         logger.info("i  No Mermaid diagrams found in the document")
+        return processed_text, []
 
-    return processed_text, diagrams
+    mermaid_diagrams = [
+        MermaidDiagram(
+            content=diagram,
+            start_line=1,  # TODO: Track actual line numbers
+            end_line=len(diagram.splitlines()),
+            original_text=f"```mermaid\n{diagram}\n```",
+        )
+        for diagram in diagrams
+    ]
+
+    return processed_text, mermaid_diagrams
 
 
 def generate_diagram_images(
@@ -192,8 +203,10 @@ def main(
 
     # Process the file
     try:
-        generator = PDFGenerator()
-        generator.convert(input_file, output_file)
+        processed_text, diagrams = process_markdown_content(Path(input_file))
+        diagram_images = generate_diagram_images(diagrams, Path(input_file).parent)
+        create_pdf(processed_text, diagram_images, Path(output_file))
+
         logger.info(f"Successfully converted {input_file} to {output_file}")
     except Exception as e:
         logger.error(f"Error converting file: {e}")
