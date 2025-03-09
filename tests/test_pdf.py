@@ -4,7 +4,7 @@ import io
 import subprocess
 import types
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -33,7 +33,7 @@ def sample_diagram() -> MermaidDiagram:
 
 
 @pytest.fixture
-def multiple_diagrams() -> List[MermaidDiagram]:
+def multiple_diagrams() -> list[MermaidDiagram]:
     """Create a list of test diagrams."""
     return [
         MermaidDiagram(
@@ -52,7 +52,7 @@ def multiple_diagrams() -> List[MermaidDiagram]:
 
 
 def test_generate_pdf_success(
-    temp_output_dir: Path, multiple_diagrams: List[MermaidDiagram]
+    temp_output_dir: Path, multiple_diagrams: list[MermaidDiagram]
 ) -> None:
     """Test successful PDF generation with proper output messages."""
     markdown_text = "# Test Document\n\nSome content"
@@ -66,7 +66,7 @@ def test_generate_pdf_success(
         diagram_images[diagram] = image_path
 
     def mock_run(
-        cmd: List[str], **kwargs: Dict[str, Any]
+        cmd: list[str], **kwargs: dict[str, Any]
     ) -> subprocess.CompletedProcess[str]:
         if cmd[0] == "pandoc":
             # Create a dummy PDF file
@@ -103,7 +103,7 @@ def test_generate_pdf_image_failure(temp_output_dir: Path) -> None:
     diagram_images = {invalid_diagram: temp_output_dir / "invalid_diagram.png"}
 
     def mock_run(
-        cmd: List[str], **kwargs: Dict[str, Any]
+        cmd: list[str], **kwargs: dict[str, Any]
     ) -> subprocess.CompletedProcess[str]:
         if cmd[0] == "pandoc":
             return subprocess.CompletedProcess(
@@ -125,7 +125,7 @@ def test_generate_pdf_image_failure(temp_output_dir: Path) -> None:
 
 
 def test_generate_pdf_pandoc_failure(
-    temp_output_dir: Path, multiple_diagrams: List[MermaidDiagram]
+    temp_output_dir: Path, multiple_diagrams: list[MermaidDiagram]
 ) -> None:
     """Test PDF generation with Pandoc failure."""
     markdown_text = "# Test Document\n\nSome content"
@@ -139,7 +139,7 @@ def test_generate_pdf_pandoc_failure(
         diagram_images[diagram] = image_path
 
     def mock_run(
-        cmd: List[str], **kwargs: Dict[str, Any]
+        cmd: list[str], **kwargs: dict[str, Any]
     ) -> subprocess.CompletedProcess[str]:
         if cmd[0] == "pandoc":
             return subprocess.CompletedProcess(
@@ -161,7 +161,7 @@ def test_generate_pdf_pandoc_failure(
 
 
 def test_generate_pdf_cleanup(
-    temp_output_dir: Path, multiple_diagrams: List[MermaidDiagram]
+    temp_output_dir: Path, multiple_diagrams: list[MermaidDiagram]
 ) -> None:
     """Test cleanup after PDF generation."""
     markdown_text = "# Test Document\n\nSome content"
@@ -175,7 +175,7 @@ def test_generate_pdf_cleanup(
         diagram_images[diagram] = image_path
 
     def mock_run(
-        cmd: List[str], **kwargs: Dict[str, Any]
+        cmd: list[str], **kwargs: dict[str, Any]
     ) -> subprocess.CompletedProcess[str]:
         if cmd[0] == "pandoc":
             # Create a dummy PDF file
@@ -199,9 +199,9 @@ def test_generate_pdf_cleanup(
 
         def __exit__(
             self,
-            exc_type: Optional[Type[BaseException]],
-            exc_val: Optional[BaseException],
-            exc_tb: Optional[types.TracebackType],
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: types.TracebackType | None,
         ) -> None:
             # Clean up the file when exiting the context
             if mock_temp_path.exists():
@@ -241,7 +241,7 @@ def test_generate_pdf_no_diagrams(temp_output_dir: Path) -> None:
     output_path = temp_output_dir / "output.pdf"
 
     def mock_run(
-        cmd: List[str], **kwargs: Dict[str, Any]
+        cmd: list[str], **kwargs: dict[str, Any]
     ) -> subprocess.CompletedProcess[str]:
         if cmd[0] == "pandoc":
             # Create a dummy PDF file

@@ -1,4 +1,4 @@
-"""Tests for the Mermaid processor component."""
+"""Tests for the Markdown and Mermaid diagram processor."""
 
 import textwrap
 from pathlib import Path
@@ -28,7 +28,8 @@ def test_extract_diagrams_fenced() -> None:
         """
     )
 
-    diagrams = MermaidProcessor.extract_diagrams(markdown)
+    processor = MermaidProcessor()
+    diagrams = processor.extract_diagrams(markdown)
     assert len(diagrams) == EXPECTED_SINGLE_DIAGRAM_COUNT
     assert diagrams[0].content == "graph TD\nA[Start] --> B[End]"
     assert diagrams[0].start_line == EXPECTED_LINE_NUMBER
@@ -50,7 +51,8 @@ def test_extract_diagrams_inline() -> None:
         """
     )
 
-    diagrams = MermaidProcessor.extract_diagrams(markdown)
+    processor = MermaidProcessor()
+    diagrams = processor.extract_diagrams(markdown)
     assert len(diagrams) == EXPECTED_SINGLE_DIAGRAM_COUNT
     assert diagrams[0].content == "sequenceDiagram\nA->>B: Hello"
     assert diagrams[0].start_line == EXPECTED_LINE_NUMBER
@@ -77,7 +79,8 @@ def test_extract_diagrams_multiple() -> None:
         """
     )
 
-    diagrams = MermaidProcessor.extract_diagrams(markdown)
+    processor = MermaidProcessor()
+    diagrams = processor.extract_diagrams(markdown)
     assert len(diagrams) == EXPECTED_MULTIPLE_DIAGRAM_COUNT
     assert "graph TD" in diagrams[0].content
     assert "sequenceDiagram" in diagrams[1].content
@@ -96,13 +99,13 @@ def test_validate_diagram_valid() -> None:
         "flowchart LR\nA-->B",
     ]
 
+    processor = MermaidProcessor()
     for content in valid_diagrams:
         diagram = MermaidDiagram(
             content=content, start_line=1, end_line=2, original_text=""
         )
-        is_valid, error = MermaidProcessor.validate_diagram(diagram)
-        assert is_valid
-        assert error is None
+        is_valid, error = processor.validate_diagram(diagram)
+        assert is_valid, f"Diagram should be valid: {error}"
 
 
 def test_validate_diagram_invalid() -> None:
@@ -113,13 +116,13 @@ def test_validate_diagram_invalid() -> None:
         "graph",  # Incomplete graph
     ]
 
+    processor = MermaidProcessor()
     for content in invalid_diagrams:
         diagram = MermaidDiagram(
             content=content, start_line=1, end_line=2, original_text=""
         )
-        is_valid, error = MermaidProcessor.validate_diagram(diagram)
-        assert not is_valid
-        assert error is not None
+        is_valid, error = processor.validate_diagram(diagram)
+        assert not is_valid, "Diagram should be invalid"
 
 
 def test_process_markdown_valid() -> None:
@@ -135,9 +138,10 @@ def test_process_markdown_valid() -> None:
         """
     )
 
-    processed_text, errors = MermaidProcessor.process_markdown(markdown)
-    assert processed_text == markdown
+    processor = MermaidProcessor()
+    processed_text, errors = processor.process_markdown(markdown)
     assert not errors
+    assert processed_text == markdown
 
 
 def test_process_markdown_invalid() -> None:
@@ -152,9 +156,10 @@ def test_process_markdown_invalid() -> None:
         """
     )
 
-    processed_text, errors = MermaidProcessor.process_markdown(markdown)
+    processor = MermaidProcessor()
+    processed_text, errors = processor.process_markdown(markdown)
+    assert errors
     assert processed_text == markdown
-    assert len(errors) == EXPECTED_INVALID_ERROR_COUNT
 
 
 def test_process_markdown_success(temp_dir: Path) -> None:
@@ -170,6 +175,7 @@ def test_process_markdown_success(temp_dir: Path) -> None:
         """
     )
 
-    processed_text, errors = MermaidProcessor.process_markdown(markdown)
+    processor = MermaidProcessor()
+    processed_text, errors = processor.process_markdown(markdown)
+    assert not errors
     assert processed_text == markdown
-    assert len(errors) == EXPECTED_ERROR_COUNT

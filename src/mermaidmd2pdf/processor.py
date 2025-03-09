@@ -1,146 +1,195 @@
-"""Mermaid diagram processor component for MermaidMD2PDF."""
+"""Markdown and Mermaid diagram processing component."""
 
 import re
 from dataclasses import dataclass
-from typing import ClassVar, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
+
+from mermaidmd2pdf.logging import get_logger
+
+logger = get_logger(__name__)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True)  # Make the dataclass immutable
 class MermaidDiagram:
-    """Represents a Mermaid diagram found in Markdown text."""
+    """Represents a Mermaid diagram extracted from Markdown.
 
-    content: str
-    start_line: int
-    end_line: int
-    original_text: str
+    This class is immutable (frozen=True) to ensure thread safety when processing
+    multiple diagrams concurrently and to make it suitable as a dictionary key.
+    """
+
+    content: str  # The actual Mermaid diagram content without fences
+    start_line: int  # 1-based line number where the diagram starts in source
+    end_line: int  # 1-based line number where the diagram ends in source
+    original_text: str  # Complete original text including fences/tags
+    config: Optional[Dict[str, Any]] = None
 
     def __hash__(self) -> int:
-        """Return a hash value for the diagram."""
-        return hash((self.content, self.start_line, self.end_line, self.original_text))
+        """Make MermaidDiagram hashable based on its content and position.
+
+        The hash is based on both content and config to ensure diagrams with
+        different configurations are treated as distinct, even if content is same.
+        This is important for caching and diagram-to-image mapping.
+        """
+        config_str = str(sorted(self.config.items())) if self.config else ""
+        return hash((self.content, self.start_line, self.end_line, config_str))
 
     def __eq__(self, other: object) -> bool:
-        """Compare two diagrams for equality."""
+        """Compare MermaidDiagram instances for equality.
+
+        Two diagrams are considered equal if they have the same content,
+        position, and configuration. This is used for deduplication and
+        cache lookups.
+        """
         if not isinstance(other, MermaidDiagram):
             return NotImplemented
         return (
             self.content == other.content
             and self.start_line == other.start_line
             and self.end_line == other.end_line
-            and self.original_text == other.original_text
+            and self.config == other.config
         )
 
 
 class MermaidProcessor:
-    """Process Markdown files to extract and validate Mermaid diagrams."""
+    """Processes Markdown text and extracts Mermaid diagrams."""
 
-    MERMAID_FENCE_PATTERN = re.compile(r"```mermaid\n(.*?)\n```", re.DOTALL)
-    MERMAID_INLINE_PATTERN = re.compile(r"<mermaid>(.*?)</mermaid>", re.DOTALL)
-    MIN_DIAGRAM_LINES = 2  # Type + at least one element
-    VALID_DIAGRAM_TYPES: ClassVar[Set[str]] = {
-        "graph",
-        "sequencediagram",
-        "classdiagram",
-        "statediagram",
-        "erdiagram",
-        "flowchart",
-        "gantt",
-        "pie",
-        "journey",
-    }
+    def __init__(self) -> None:
+        # Define valid diagram types with their case-sensitive names
+        self.DIAGRAM_TYPES: Dict[str, Dict[str, Any]] = {
+            "sequencediagram": {"name": "sequenceDiagram", "min_lines": 2},
+            "classdiagram": {"name": "classDiagram", "min_lines": 2},
+            "flowchart": {"name": "flowchart", "min_lines": 2},
+            "graph": {"name": "graph", "min_lines": 2},
+            "pie": {"name": "pie", "min_lines": 2},
+            "erdiagram": {"name": "erDiagram", "min_lines": 2},
+            "statediagram": {"name": "stateDiagram", "min_lines": 2},
+            "gantt": {"name": "gantt", "min_lines": 2},
+        }
 
-    @staticmethod
-    def extract_diagrams(markdown_text: str) -> List[MermaidDiagram]:
-        """Extract Mermaid diagrams from Markdown text.
+    def validate_diagram(self, diagram: MermaidDiagram) -> Tuple[bool, Optional[str]]:
+        """Validate a Mermaid diagram.
 
-        Args:
-            markdown_text: The Markdown text to process
-
-        Returns:
-            List of MermaidDiagram objects containing the extracted diagrams
-        """
-        diagrams = []
-
-        # Find fenced Mermaid blocks
-        for match in MermaidProcessor.MERMAID_FENCE_PATTERN.finditer(markdown_text):
-            start_pos = markdown_text.count("\n", 0, match.start()) + 1
-            end_pos = markdown_text.count("\n", 0, match.end()) + 1
-            diagrams.append(
-                MermaidDiagram(
-                    content=match.group(1).strip(),
-                    start_line=start_pos,
-                    end_line=end_pos,
-                    original_text=match.group(0),
-                )
-            )
-
-        # Find inline Mermaid blocks
-        for match in MermaidProcessor.MERMAID_INLINE_PATTERN.finditer(markdown_text):
-            start_pos = markdown_text.count("\n", 0, match.start()) + 1
-            end_pos = markdown_text.count("\n", 0, match.end()) + 1
-            diagrams.append(
-                MermaidDiagram(
-                    content=match.group(1).strip(),
-                    start_line=start_pos,
-                    end_line=end_pos,
-                    original_text=match.group(0),
-                )
-            )
-
-        return diagrams
-
-    @staticmethod
-    def validate_diagram(diagram: MermaidDiagram) -> Tuple[bool, Optional[str]]:
-        """Validate a Mermaid diagram for syntax errors.
+        This method performs several validation checks:
+        1. Verifies the diagram has non-empty content
+        2. Checks if it starts with a valid diagram type
+        3. For graph/flowchart types, ensures direction is specified
+        4. Verifies minimal content requirements are met
 
         Args:
             diagram: The MermaidDiagram to validate
 
         Returns:
             Tuple of (is_valid, error_message)
-            - is_valid: True if valid, False otherwise
-            - error_message: None if valid, error description if invalid
+            - is_valid: True if diagram passes all validation checks
+            - error_message: None if valid, description of the error if invalid
         """
-        content = diagram.content.strip()
+        # Basic validation: check if the diagram has content
+        content_lines = diagram.content.strip().split("\n")
+        if not content_lines or not content_lines[0].strip():
+            msg = f"Empty diagram at lines {diagram.start_line}-{diagram.end_line}"
+            logger.warning(msg)
+            return False, "Empty diagram"
 
-        # Check for empty content
-        if not content:
-            return False, "Empty diagram content"
+        # Extract the first word and normalize it
+        first_line = content_lines[0].strip()
+        first_word = first_line.split()[0].lower()
 
-        # Check for minimum content length (type + at least one element)
-        if len(content.split("\n")) < MermaidProcessor.MIN_DIAGRAM_LINES:
-            return False, "Diagram must contain at least one element"
+        # Handle graph/flowchart with direction
+        if first_word in ["graph", "flowchart"]:
+            if len(first_line.split()) < 2:
+                msg = (
+                    f"Missing direction for {first_word} diagram at lines "
+                    f"{diagram.start_line}-{diagram.end_line}"
+                )
+                logger.warning(msg)
+                return False, f"Missing direction for {first_word} diagram"
+            return True, None
 
-        # Basic syntax validation
-        content.split("\n")[0].strip().lower()
-        if not any(
-            diagram_type.lower() in content.lower()
-            for diagram_type in MermaidProcessor.VALID_DIAGRAM_TYPES
-        ):
-            return False, (
-                f"Invalid diagram type at line {diagram.start_line}. "
-                f"Must be one of: {', '.join(MermaidProcessor.VALID_DIAGRAM_TYPES)}"
-            )
+        # Remove any trailing colon for diagram types like sequenceDiagram:
+        first_word = first_word.rstrip(":")
 
-        return True, None
+        # Check if it's a known diagram type
+        if first_word in self.DIAGRAM_TYPES:
+            return True, None
 
-    @staticmethod
-    def process_markdown(markdown_text: str) -> Tuple[str, List[str]]:
-        """Process Markdown text, validating all Mermaid diagrams.
+        msg = (
+            "Invalid diagram type at lines "
+            f"{diagram.start_line}-{diagram.end_line}: {first_word}"
+        )
+        logger.warning(msg)
+        return False, f"Invalid diagram type: {first_word}"
+
+    def process_markdown(self, content: str) -> Tuple[str, List[str]]:
+        """Process Markdown text and validate Mermaid diagrams.
+
+        This method serves as the main entry point for processing Markdown content.
+        It extracts all Mermaid diagrams and validates each one, collecting any
+        errors that occur during validation.
 
         Args:
-            markdown_text: The Markdown text to process
+            content: The Markdown text to process
 
         Returns:
             Tuple of (processed_text, errors)
-            - processed_text: The original text if all diagrams are valid
-            - errors: List of error messages, empty if all diagrams are valid
+            - processed_text: The processed Markdown text
+            - errors: List of error messages, empty if no errors
         """
         errors = []
-        diagrams = MermaidProcessor.extract_diagrams(markdown_text)
+        diagrams = self.extract_diagrams(content)
 
+        if not diagrams:
+            logger.debug("No Mermaid diagrams found in content")
+            return content, []
+
+        logger.debug(f"Found {len(diagrams)} Mermaid diagrams")
         for diagram in diagrams:
-            is_valid, error = MermaidProcessor.validate_diagram(diagram)
+            is_valid, error = self.validate_diagram(diagram)
             if not is_valid:
-                errors.append(f"Invalid diagram at line {diagram.start_line}: {error}")
+                error_msg = (
+                    "Invalid Mermaid diagram at lines "
+                    f"{diagram.start_line}-{diagram.end_line}"
+                )
+                errors.append(error or error_msg)
 
-        return markdown_text, errors
+        return content, errors
+
+    def extract_diagrams(self, content: str) -> List[MermaidDiagram]:
+        """Extract Mermaid diagrams from Markdown text.
+
+        This method uses regex patterns to find both fenced code blocks and inline
+        diagrams. For each match, it calculates the exact line numbers in the source
+        text for error reporting and diagram replacement.
+
+        Args:
+            content: The Markdown text to process
+
+        Returns:
+            List of MermaidDiagram objects, each containing the diagram content
+            and its location in the source text
+        """
+        diagrams = []
+        # Match both fenced code blocks and inline diagrams
+        patterns = [
+            (r"```mermaid\n(.*?)\n```", True),  # Fenced code blocks with newlines
+            (r"<mermaid>(.*?)</mermaid>", False),  # Inline diagrams without newlines
+        ]
+
+        for pattern, _is_fenced in patterns:
+            # Use re.DOTALL to make '.' match newlines, crucial for multi-line diagrams
+            for match in re.finditer(pattern, content, re.DOTALL):
+                # Calculate 1-based line numbers by counting newlines
+                start_line = content.count("\n", 0, match.start()) + 1
+                end_line = content.count("\n", 0, match.end()) + 1
+
+                diagram = MermaidDiagram(
+                    content=match.group(
+                        1
+                    ).strip(),  # Remove leading/trailing whitespace
+                    start_line=start_line,
+                    end_line=end_line,
+                    original_text=match.group(0),  # Keep original text for replacement
+                )
+                diagrams.append(diagram)
+                logger.debug(f"Extracted diagram at lines {start_line}-{end_line}")
+
+        return diagrams

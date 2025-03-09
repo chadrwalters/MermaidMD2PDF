@@ -3,7 +3,7 @@
 import os
 import pathlib
 import tempfile
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 
@@ -22,14 +22,16 @@ def test_validate_input_file_valid_markdown(temp_dir: pathlib.Path) -> None:
     test_file = temp_dir / "test.md"
     test_file.write_text("# Test")
 
-    is_valid, error = FileValidator.validate_input_file(str(test_file))
+    validator = FileValidator()
+    is_valid, error = validator.validate_input_file(str(test_file))
     assert is_valid
     assert error is None
 
 
 def test_validate_input_file_nonexistent() -> None:
     """Test validation of a nonexistent input file."""
-    is_valid, error = FileValidator.validate_input_file("nonexistent.md")
+    validator = FileValidator()
+    is_valid, error = validator.validate_input_file("nonexistent.md")
     assert not is_valid
     assert "does not exist" in str(error)
 
@@ -39,14 +41,16 @@ def test_validate_input_file_wrong_extension(temp_dir: pathlib.Path) -> None:
     test_file = temp_dir / "test.txt"
     test_file.write_text("test")
 
-    is_valid, error = FileValidator.validate_input_file(str(test_file))
+    validator = FileValidator()
+    is_valid, error = validator.validate_input_file(str(test_file))
     assert not is_valid
-    assert "Invalid input file extension" in str(error)
+    assert "not a Markdown file" in str(error)
 
 
 def test_validate_input_file_directory(temp_dir: pathlib.Path) -> None:
     """Test validation when input is a directory."""
-    is_valid, error = FileValidator.validate_input_file(str(temp_dir))
+    validator = FileValidator()
+    is_valid, error = validator.validate_input_file(str(temp_dir))
     assert not is_valid
     assert "not a file" in str(error)
 
@@ -57,9 +61,10 @@ def test_validate_input_file_no_read_permission(temp_dir: pathlib.Path) -> None:
     test_file.write_text("# Test")
     os.chmod(test_file, 0o000)  # Remove all permissions
 
-    is_valid, error = FileValidator.validate_input_file(str(test_file))
+    validator = FileValidator()
+    is_valid, error = validator.validate_input_file(str(test_file))
     assert not is_valid
-    assert "No read permission" in str(error)
+    assert "not readable" in str(error)
 
     os.chmod(test_file, 0o644)  # Restore permissions for cleanup
 
@@ -68,7 +73,8 @@ def test_validate_output_file_valid_pdf(temp_dir: pathlib.Path) -> None:
     """Test validation of a valid PDF output path."""
     test_file = temp_dir / "test.pdf"
 
-    is_valid, error = FileValidator.validate_output_file(str(test_file))
+    validator = FileValidator()
+    is_valid, error = validator.validate_output_file(str(test_file))
     assert is_valid
     assert error is None
 
@@ -77,16 +83,18 @@ def test_validate_output_file_wrong_extension(temp_dir: pathlib.Path) -> None:
     """Test validation of output file with wrong extension."""
     test_file = temp_dir / "test.txt"
 
-    is_valid, error = FileValidator.validate_output_file(str(test_file))
+    validator = FileValidator()
+    is_valid, error = validator.validate_output_file(str(test_file))
     assert not is_valid
-    assert "Invalid output file extension" in str(error)
+    assert "must have .pdf extension" in str(error)
 
 
 def test_validate_output_file_nonexistent_directory() -> None:
     """Test validation of output file in nonexistent directory."""
-    is_valid, error = FileValidator.validate_output_file("nonexistent/test.pdf")
-    assert not is_valid
-    assert "directory does not exist" in str(error)
+    validator = FileValidator()
+    is_valid, error = validator.validate_output_file("nonexistent/test.pdf")
+    assert is_valid  # Should succeed as directory will be created
+    assert error is None
 
 
 def test_validate_output_file_no_write_permission(temp_dir: pathlib.Path) -> None:
@@ -94,8 +102,9 @@ def test_validate_output_file_no_write_permission(temp_dir: pathlib.Path) -> Non
     os.chmod(temp_dir, 0o500)  # Read and execute only
 
     test_file = temp_dir / "test.pdf"
-    is_valid, error = FileValidator.validate_output_file(str(test_file))
+    validator = FileValidator()
+    is_valid, error = validator.validate_output_file(str(test_file))
     assert not is_valid
-    assert "No write permission" in str(error)
+    assert "not writable" in str(error)
 
     os.chmod(temp_dir, 0o755)  # Restore permissions for cleanup

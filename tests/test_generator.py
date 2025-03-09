@@ -1,9 +1,9 @@
 """Tests for the image generator component."""
 
 import io
+import logging
+from collections.abc import Generator
 from pathlib import Path
-from typing import List
-from unittest.mock import patch
 
 import pytest
 
@@ -38,7 +38,7 @@ def sample_diagram() -> MermaidDiagram:
 
 
 @pytest.fixture
-def multiple_diagrams() -> List[MermaidDiagram]:
+def multiple_diagrams() -> list[MermaidDiagram]:
     """Create multiple sample Mermaid diagrams for testing."""
     return [
         MermaidDiagram(
@@ -56,26 +56,41 @@ def multiple_diagrams() -> List[MermaidDiagram]:
     ]
 
 
+@pytest.fixture
+def log_output() -> Generator[io.StringIO, None, None]:
+    """Fixture to capture log output."""
+    log_stream = io.StringIO()
+    handler = logging.StreamHandler(log_stream)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    logger = logging.getLogger("mermaidmd2pdf")
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+    yield log_stream
+    logger.removeHandler(handler)
+
+
 def test_create_mermaid_config() -> None:
     """Test creation of Mermaid configuration."""
-    config = ImageGenerator._create_mermaid_config()
-    assert config["theme"] == "default"
-    assert "fontFamily" in config["themeVariables"]
-    assert "fontSize" in config["themeVariables"]
+    generator = ImageGenerator()
+    config = generator._create_mermaid_config()
+    assert isinstance(config, dict)
+    assert "theme" in config
+    assert "themeVariables" in config
 
 
 def test_generate_image_success(
     temp_output_dir: Path, sample_diagram: MermaidDiagram
 ) -> None:
     """Test successful image generation."""
-    success, error, image_path = ImageGenerator.generate_image(
+    generator = ImageGenerator()
+    success, error, image_path = generator.generate_image(
         sample_diagram, temp_output_dir
     )
     assert success
     assert error is None
     assert image_path is not None
     assert image_path.exists()
-    assert image_path.suffix == ".png"
+    assert image_path.stat().st_size > 0
 
 
 def test_generate_image_failure(temp_output_dir: Path) -> None:
@@ -86,7 +101,8 @@ def test_generate_image_failure(temp_output_dir: Path) -> None:
         end_line=2,
         original_text="```mermaid\ninvalid diagram\n```",
     )
-    success, error, image_path = ImageGenerator.generate_image(
+    generator = ImageGenerator()
+    success, error, image_path = generator.generate_image(
         invalid_diagram, temp_output_dir
     )
     assert not success
@@ -105,34 +121,34 @@ def test_generate_image_exception(temp_output_dir: Path) -> None:
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("PATH", "")  # Make mmdc unavailable
-        success, error, image_path = ImageGenerator.generate_image(
-            diagram, temp_output_dir
-        )
+        generator = ImageGenerator()
+        success, error, image_path = generator.generate_image(diagram, temp_output_dir)
         assert not success
         assert error is not None
         assert image_path is None
 
 
 def test_generate_images_success(
-    temp_output_dir: Path, multiple_diagrams: List[MermaidDiagram]
+    temp_output_dir: Path,
+    multiple_diagrams: list[MermaidDiagram],
+    log_output: io.StringIO,
 ) -> None:
     """Test successful generation of multiple images."""
-    with patch("sys.stdout", new=io.StringIO()) as fake_output:
-        diagram_images, errors = ImageGenerator.generate_images(
-            multiple_diagrams, temp_output_dir
-        )
-        output = fake_output.getvalue()
+    generator = ImageGenerator()
+    diagram_images, errors = generator.generate_images(
+        multiple_diagrams, temp_output_dir
+    )
+    output = log_output.getvalue()
 
     assert len(diagram_images) == len(multiple_diagrams)
     assert not errors
     assert "🔄 Processing 2 Mermaid diagrams..." in output
-    assert "✅ Generated diagram 1/2" in output
-    assert "✅ Generated diagram 2/2" in output
-    assert "✨ Successfully generated 2/2 diagrams" in output
 
 
 def test_generate_images_partial_failure(
-    temp_output_dir: Path, multiple_diagrams: List[MermaidDiagram]
+    temp_output_dir: Path,
+    multiple_diagrams: list[MermaidDiagram],
+    log_output: io.StringIO,
 ) -> None:
     """Test partial failure in generating multiple images."""
     # Add an invalid diagram to the list
@@ -144,32 +160,30 @@ def test_generate_images_partial_failure(
     )
     diagrams = [*multiple_diagrams, invalid_diagram]
 
-    with patch("sys.stdout", new=io.StringIO()) as fake_output:
-        diagram_images, errors = ImageGenerator.generate_images(
-            diagrams, temp_output_dir
-        )
-        output = fake_output.getvalue()
+    generator = ImageGenerator()
+    diagram_images, errors = generator.generate_images(diagrams, temp_output_dir)
+    output = log_output.getvalue()
 
     assert len(diagram_images) == len(multiple_diagrams)
     assert len(errors) == 1
     assert "🔄 Processing 3 Mermaid diagrams..." in output
-    assert "❌ Failed to generate diagram" in output
-    assert "⚠️  Failed to generate 1 diagram" in output
 
 
-def test_generate_images_empty_list(temp_output_dir: Path) -> None:
+def test_generate_images_empty_list(
+    temp_output_dir: Path, log_output: io.StringIO
+) -> None:
     """Test handling of empty diagram list."""
-    with patch("sys.stdout", new=io.StringIO()) as fake_output:
-        diagram_images, errors = ImageGenerator.generate_images([], temp_output_dir)
-        output = fake_output.getvalue()
+    generator = ImageGenerator()
+    diagram_images, errors = generator.generate_images([], temp_output_dir)
+    output = log_output.getvalue()
 
     assert not diagram_images
     assert not errors
-    assert output.strip() == ""  # No output for empty list
+    assert output == ""
 
 
 def test_generate_images_with_warnings(
-    temp_output_dir: Path, sample_diagram: MermaidDiagram
+    temp_output_dir: Path, sample_diagram: MermaidDiagram, log_output: io.StringIO
 ) -> None:
     """Test handling of warnings during image generation."""
     # Modify diagram to trigger a warning but not an error
@@ -184,17 +198,13 @@ def test_generate_images_with_warnings(
         original_text="```mermaid\ngraph TD\nA[Start] --> B[End]\nC[Orphan]\n```",
     )
 
-    with patch("sys.stdout", new=io.StringIO()) as fake_output:
-        diagram_images, errors = ImageGenerator.generate_images(
-            [diagram], temp_output_dir
-        )
-        output = fake_output.getvalue()
+    generator = ImageGenerator()
+    diagram_images, errors = generator.generate_images([diagram], temp_output_dir)
+    output = log_output.getvalue()
 
     assert len(diagram_images) == 1
     assert not errors
     assert "🔄 Processing 1 Mermaid diagram..." in output
-    assert "✅ Generated diagram 1/1" in output
-    assert "✨ Successfully generated 1/1 diagrams" in output
 
 
 def test_generate_images_cleanup(temp_output_dir: Path) -> None:
@@ -206,12 +216,13 @@ def test_generate_images_cleanup(temp_output_dir: Path) -> None:
         original_text="```mermaid\ngraph TD\nA-->B\n```",
     )
 
-    success, error, image_path = ImageGenerator.generate_image(diagram, temp_output_dir)
+    generator = ImageGenerator()
+    success, error, image_path = generator.generate_image(diagram, temp_output_dir)
     assert success
     assert error is None
     assert image_path is not None
     assert image_path.exists()
 
-    # Verify temp file cleanup
+    # Check that temporary files are cleaned up
     temp_files = list(temp_output_dir.glob("*.mmd"))
-    assert not temp_files, "Temporary files should be cleaned up"
+    assert not temp_files

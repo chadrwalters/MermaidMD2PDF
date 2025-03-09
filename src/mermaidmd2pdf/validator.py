@@ -1,96 +1,83 @@
 """File validation component for MermaidMD2PDF."""
 
 import os
-import pathlib
-from typing import ClassVar, Optional, Set, Tuple
+from pathlib import Path
+from typing import Optional, Tuple
+
+from mermaidmd2pdf.logging import get_logger
+
+logger = get_logger(__name__)
 
 
 class FileValidator:
-    """Validates input and output files for security and correctness."""
+    """Validates input and output files."""
 
-    ALLOWED_INPUT_EXTENSIONS: ClassVar[Set[str]] = {".md", ".markdown"}
-    ALLOWED_OUTPUT_EXTENSIONS: ClassVar[Set[str]] = {".pdf"}
-
-    @staticmethod
-    def validate_input_file(file_path: str) -> Tuple[bool, Optional[str]]:
-        """Validate input file path for security and correctness.
+    def validate_input_file(self, file_path: str) -> Tuple[bool, Optional[str]]:
+        """Validate the input Markdown file.
 
         Args:
-            file_path: Path to the input file to validate
+            file_path: Path to the input file
 
         Returns:
             Tuple of (is_valid, error_message)
-            - is_valid: True if file is valid, False otherwise
-            - error_message: None if valid, error description if invalid
         """
         try:
-            path = pathlib.Path(file_path).resolve()
-
-            # Check if file exists
+            path = Path(file_path).resolve()
             if not path.exists():
-                return False, f"Input file does not exist: {file_path}"
-
-            # Check if path is a file (not a directory)
+                return False, f"Input file {path} does not exist"
             if not path.is_file():
-                return False, f"Input path is not a file: {file_path}"
-
-            # Check file extension
-            if path.suffix.lower() not in FileValidator.ALLOWED_INPUT_EXTENSIONS:
-                return False, (
-                    f"Invalid input file extension: {path.suffix}. "
-                    "Allowed extensions: "
-                    f"{', '.join(sorted(FileValidator.ALLOWED_INPUT_EXTENSIONS))}"
-                )
-
-            # Check read permissions
+                return False, f"Input path {path} is not a file"
             if not os.access(path, os.R_OK):
-                return False, f"No read permission for input file: {file_path}"
+                return False, f"Input file {path} is not readable"
+            if path.suffix.lower() != ".md":
+                return False, f"Input file {path} is not a Markdown file"
 
-            # Successful validation
+            logger.debug(f"Input file {path} is valid")
             return True, None
 
-        except (OSError, ValueError) as e:
-            return False, f"Error validating input file: {e!s}"
+        except Exception as e:
+            return False, f"Error validating input file: {e}"
 
-    @staticmethod
-    def validate_output_file(file_path: str) -> Tuple[bool, Optional[str]]:
-        """Validate output file path for security and correctness.
+    def validate_output_file(self, file_path: str) -> Tuple[bool, Optional[str]]:
+        """Validate the output PDF file path.
 
         Args:
-            file_path: Path to the output file to validate
+            file_path: Path to the output file
 
         Returns:
             Tuple of (is_valid, error_message)
-            - is_valid: True if file path is valid, False otherwise
-            - error_message: None if valid, error description if invalid
         """
         try:
-            path = pathlib.Path(file_path).resolve()
-
-            # Check file extension
-            if path.suffix.lower() not in FileValidator.ALLOWED_OUTPUT_EXTENSIONS:
-                return False, (
-                    f"Invalid output file extension: {path.suffix}. "
-                    "Allowed extensions: "
-                    f"{', '.join(sorted(FileValidator.ALLOWED_OUTPUT_EXTENSIONS))}"
-                )
+            path = Path(file_path).resolve()
+            parent = path.parent
 
             # Check if parent directory exists and is writable
-            parent_dir = path.parent
-            if not parent_dir.exists():
-                return False, f"Output directory does not exist: {parent_dir}"
-            if not os.access(parent_dir, os.W_OK):
-                return False, f"No write permission for output directory: {parent_dir}"
+            if parent.exists():
+                if not os.access(parent, os.W_OK):
+                    return False, f"Output directory {parent} is not writable"
+            else:
+                try:
+                    parent.mkdir(parents=True)
+                except (OSError, PermissionError) as e:
+                    return False, f"Cannot create output directory {parent}: {e}"
 
-            # If file exists, check if it's writable
-            if path.exists() and not os.access(path, os.W_OK):
-                return (
-                    False,
-                    f"No write permission for existing output file: {file_path}",
-                )
+            # Check if output file exists and is writable
+            if path.exists():
+                if not os.access(path, os.W_OK):
+                    return False, f"Output file {path} exists but is not writable"
+            else:
+                # Try to create a temporary file to verify write access
+                try:
+                    path.touch()
+                    path.unlink()
+                except (OSError, PermissionError) as e:
+                    return False, f"Cannot write to output file {path}: {e}"
 
-            # Successful validation
+            if path.suffix.lower() != ".pdf":
+                return False, f"Output file {path} must have .pdf extension"
+
+            logger.debug(f"Output file {path} is valid")
             return True, None
 
-        except (OSError, ValueError) as e:
-            return False, f"Error validating output file: {e!s}"
+        except Exception as e:
+            return False, f"Error validating output file: {e}"
