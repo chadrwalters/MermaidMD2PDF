@@ -39,15 +39,18 @@ class DependencyChecker:
             where missing_packages is a list of package names that are either
             missing or have version conflicts
         """
-        import pkg_resources
+        from importlib.metadata import PackageNotFoundError, version
+
+        from packaging.version import parse
 
         missing: List[str] = []
-        for package, version in self.REQUIRED_PACKAGES.items():
+        for package, version_spec in self.REQUIRED_PACKAGES.items():
             try:
-                pkg_resources.require(f"{package}{version}")  # type: ignore
-            except pkg_resources.VersionConflict:
-                missing.append(f"{package} (version conflict)")
-            except pkg_resources.DistributionNotFound:
+                pkg_version = parse(version(package))
+                required_version = parse(version_spec.lstrip(">="))
+                if pkg_version < required_version:
+                    missing.append(f"{package} (version conflict)")
+            except PackageNotFoundError:
                 missing.append(package)
 
         return not bool(missing), missing
