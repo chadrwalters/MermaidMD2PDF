@@ -134,3 +134,4 @@ show_missing = true
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v --cov=mermaidmd2pdf --cov-report=term-missing"
+pythonpath = [".", "scripts"]  # Add the current directory and scripts to Python path

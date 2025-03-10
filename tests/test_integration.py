@@ -72,7 +72,9 @@ def test_workflow_with_single_diagram(
     assert len(diagram_images) == EXPECTED_SINGLE_DIAGRAM_COUNT
 
     # Create PDF
-    success = main.callback(str(sample_markdown), str(output_file))
+    success = main.callback(
+        str(sample_markdown), str(output_file), theme="light", debug=False
+    )
     assert success is None  # Click commands return None on success
     assert output_file.exists()
 
@@ -135,7 +137,9 @@ Final text.
     assert len(diagram_images) == EXPECTED_MULTIPLE_DIAGRAM_COUNT
 
     # Create PDF
-    success = main.callback(str(markdown_file), str(output_file))
+    success = main.callback(
+        str(markdown_file), str(output_file), theme="light", debug=False
+    )
     assert success is None  # Click commands return None on success
     assert output_file.exists()
 
@@ -173,6 +177,8 @@ Just some regular markdown text.
     assert len(diagrams) == EXPECTED_ERROR_COUNT
 
     # Create PDF
-    success = main.callback(str(markdown_file), str(output_file))
+    success = main.callback(
+        str(markdown_file), str(output_file), theme="light", debug=False
+    )
     assert success is None  # Click commands return None on success
     assert output_file.exists()

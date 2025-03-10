@@ -8,7 +8,11 @@ from mermaidmd2pdf.dependencies import DependencyChecker
 
 def test_check_pandoc_installed() -> None:
     """Test Pandoc check when installed."""
-    with patch("shutil.which", return_value="/usr/local/bin/pandoc"):
+    mock_result = type("MockResult", (), {"returncode": 0})()
+    with (
+        patch("shutil.which", return_value="/usr/local/bin/pandoc"),
+        patch("subprocess.run", return_value=mock_result),
+    ):
         checker = DependencyChecker()
         is_available, error = checker.check_pandoc()
         assert is_available
@@ -58,8 +62,10 @@ def test_check_python_packages_missing() -> None:
 
 def test_verify_all_success() -> None:
     """Test complete dependency verification when all dependencies are satisfied."""
+    mock_result = type("MockResult", (), {"returncode": 0})()
     with (
         patch("shutil.which", return_value="/usr/local/bin/pandoc"),
+        patch("subprocess.run", return_value=mock_result),
         patch("importlib.metadata.version") as mock_version,
     ):
         mock_version.return_value = (

@@ -97,6 +97,10 @@ class MermaidProcessor:
 
         first_word = first_line.split()[0].lower()
 
+        # Check if diagram type is valid
+        if first_word not in self.DIAGRAM_TYPES:
+            return False, f"Invalid diagram type: {first_word}"
+
         # Handle graph/flowchart with direction
         if first_word in ["graph", "flowchart"]:
             if len(first_line.split()) < MIN_WORDS_FOR_DIRECTION:
@@ -105,6 +109,11 @@ class MermaidProcessor:
                     f"{diagram.start_line}-{diagram.end_line}"
                 )
                 return False, msg
+
+        # Check minimum number of lines
+        min_lines = self.DIAGRAM_TYPES[first_word]["min_lines"]
+        if len(lines) < min_lines:
+            return False, f"Diagram must have at least {min_lines} lines"
 
         return True, None
 

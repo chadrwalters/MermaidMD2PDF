@@ -27,18 +27,19 @@ class FileValidator:
             Tuple of (is_valid, error_message)
         """
         path = Path(file_path)
-        if path.suffix.lower() not in self.VALID_INPUT_EXTENSIONS:
-            return (
-                False,
-                f"Invalid file extension: {path.suffix}. "
-                f"Expected: {', '.join(self.VALID_INPUT_EXTENSIONS)}",
-            )
 
         if not path.exists():
             return False, f"File does not exist: {file_path}"
 
         if not path.is_file():
-            return False, f"Not a file: {file_path}"
+            return False, f"Path is not a file: {file_path}"
+
+        if path.suffix.lower() not in self.VALID_INPUT_EXTENSIONS:
+            return (
+                False,
+                f"File is not a Markdown file (extension: {path.suffix}). "
+                f"Expected: {', '.join(self.VALID_INPUT_EXTENSIONS)}",
+            )
 
         if not os.access(path, os.R_OK):
             return False, f"File is not readable: {file_path}"
@@ -58,8 +59,7 @@ class FileValidator:
         if path.suffix.lower() not in self.VALID_OUTPUT_EXTENSIONS:
             return (
                 False,
-                f"Invalid file extension: {path.suffix}. "
-                f"Expected: {', '.join(self.VALID_OUTPUT_EXTENSIONS)}",
+                f"File must have .pdf extension, got: {path.suffix}",
             )
 
         # Create parent directory if it doesn't exist

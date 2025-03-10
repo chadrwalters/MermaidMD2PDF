@@ -1,5 +1,6 @@
 """Dependency checking component for MermaidMD2PDF."""
 
+import shutil
 import subprocess
 from typing import ClassVar, Dict, List, Optional, Tuple
 
@@ -23,13 +24,19 @@ class DependencyChecker:
         Returns:
             Tuple of (is_available, error_message)
         """
-        try:
-            subprocess.run(["pandoc", "--version"], capture_output=True, check=True)
-            return True, None
-        except subprocess.CalledProcessError:
-            return False, "Pandoc is not installed or not accessible"
-        except FileNotFoundError:
+        pandoc_path = shutil.which("pandoc")
+        if not pandoc_path:
             return False, "Pandoc is not installed"
+
+        try:
+            result = subprocess.run(
+                [pandoc_path, "--version"], capture_output=True, check=False, text=True
+            )
+            if result.returncode != 0:
+                return False, "Pandoc is not accessible"
+            return True, None
+        except Exception as e:
+            return False, f"Error checking Pandoc: {e!s}"
 
     def check_python_packages(self) -> Tuple[bool, List[str]]:
         """Check if required Python packages are installed.
