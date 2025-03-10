@@ -1,4 +1,4 @@
-"""Tests for the image generator component."""
+"""Tests for image generation functionality."""
 
 import io
 import logging
@@ -9,10 +9,11 @@ import pytest
 
 from mermaidmd2pdf.generator import ImageGenerator
 from mermaidmd2pdf.processor import MermaidDiagram
+from mermaidmd2pdf.typing import GenericList
 
 # Test constants
 EXPECTED_SINGLE_DIAGRAM_COUNT = 1  # Test cases with a single diagram
-EXPECTED_MULTIPLE_DIAGRAM_COUNT = 2  # Test cases with multiple diagrams
+EXPECTED_MULTIPLE_DIAGRAMS_COUNT = 3  # Test cases with multiple diagrams
 EXPECTED_ERROR_COUNT = 0  # No errors expected for valid diagrams
 EXPECTED_FAILURE_ERROR_COUNT = 1  # One error expected for invalid diagrams
 EXPECTED_LINE_NUMBER = 4
@@ -38,7 +39,7 @@ def sample_diagram() -> MermaidDiagram:
 
 
 @pytest.fixture
-def multiple_diagrams() -> list[MermaidDiagram]:
+def multiple_diagrams() -> GenericList[MermaidDiagram]:
     """Create multiple sample Mermaid diagrams for testing."""
     return [
         MermaidDiagram(
@@ -52,6 +53,12 @@ def multiple_diagrams() -> list[MermaidDiagram]:
             start_line=5,
             end_line=7,
             original_text="```mermaid\nsequenceDiagram\nA->>B: Hello\n```",
+        ),
+        MermaidDiagram(
+            content="classDiagram\nclass A",
+            start_line=9,
+            end_line=11,
+            original_text="```mermaid\nclassDiagram\nclass A\n```",
         ),
     ]
 
@@ -69,9 +76,9 @@ def log_output() -> Generator[io.StringIO, None, None]:
     logger.removeHandler(handler)
 
 
-def test_create_mermaid_config() -> None:
+def test_create_mermaid_config(temp_output_dir: Path) -> None:
     """Test creation of Mermaid configuration."""
-    generator = ImageGenerator()
+    generator = ImageGenerator(output_dir=temp_output_dir)
     config = generator._create_mermaid_config()
     assert isinstance(config, dict)
     assert "theme" in config
@@ -82,7 +89,7 @@ def test_generate_image_success(
     temp_output_dir: Path, sample_diagram: MermaidDiagram
 ) -> None:
     """Test successful image generation."""
-    generator = ImageGenerator()
+    generator = ImageGenerator(output_dir=temp_output_dir)
     success, error, image_path = generator.generate_image(
         sample_diagram, temp_output_dir
     )
@@ -101,7 +108,7 @@ def test_generate_image_failure(temp_output_dir: Path) -> None:
         end_line=2,
         original_text="```mermaid\ninvalid diagram\n```",
     )
-    generator = ImageGenerator()
+    generator = ImageGenerator(output_dir=temp_output_dir)
     success, error, image_path = generator.generate_image(
         invalid_diagram, temp_output_dir
     )
@@ -121,7 +128,7 @@ def test_generate_image_exception(temp_output_dir: Path) -> None:
 
     with pytest.MonkeyPatch.context() as mp:
         mp.setenv("PATH", "")  # Make mmdc unavailable
-        generator = ImageGenerator()
+        generator = ImageGenerator(output_dir=temp_output_dir)
         success, error, image_path = generator.generate_image(diagram, temp_output_dir)
         assert not success
         assert error is not None
@@ -130,11 +137,11 @@ def test_generate_image_exception(temp_output_dir: Path) -> None:
 
 def test_generate_images_success(
     temp_output_dir: Path,
-    multiple_diagrams: list[MermaidDiagram],
+    multiple_diagrams: GenericList[MermaidDiagram],
     log_output: io.StringIO,
 ) -> None:
     """Test successful generation of multiple images."""
-    generator = ImageGenerator()
+    generator = ImageGenerator(output_dir=temp_output_dir)
     diagram_images, errors = generator.generate_images(
         multiple_diagrams, temp_output_dir
     )
@@ -142,12 +149,12 @@ def test_generate_images_success(
 
     assert len(diagram_images) == len(multiple_diagrams)
     assert not errors
-    assert "🔄 Processing 2 Mermaid diagrams..." in output
+    assert "🔄 Processing 3 Mermaid diagrams..." in output
 
 
 def test_generate_images_partial_failure(
     temp_output_dir: Path,
-    multiple_diagrams: list[MermaidDiagram],
+    multiple_diagrams: GenericList[MermaidDiagram],
     log_output: io.StringIO,
 ) -> None:
     """Test partial failure in generating multiple images."""
@@ -160,20 +167,20 @@ def test_generate_images_partial_failure(
     )
     diagrams = [*multiple_diagrams, invalid_diagram]
 
-    generator = ImageGenerator()
+    generator = ImageGenerator(output_dir=temp_output_dir)
     diagram_images, errors = generator.generate_images(diagrams, temp_output_dir)
     output = log_output.getvalue()
 
     assert len(diagram_images) == len(multiple_diagrams)
     assert len(errors) == 1
-    assert "🔄 Processing 3 Mermaid diagrams..." in output
+    assert "🔄 Processing 4 Mermaid diagrams..." in output
 
 
 def test_generate_images_empty_list(
     temp_output_dir: Path, log_output: io.StringIO
 ) -> None:
     """Test handling of empty diagram list."""
-    generator = ImageGenerator()
+    generator = ImageGenerator(output_dir=temp_output_dir)
     diagram_images, errors = generator.generate_images([], temp_output_dir)
     output = log_output.getvalue()
 
@@ -198,7 +205,7 @@ def test_generate_images_with_warnings(
         original_text="```mermaid\ngraph TD\nA[Start] --> B[End]\nC[Orphan]\n```",
     )
 
-    generator = ImageGenerator()
+    generator = ImageGenerator(output_dir=temp_output_dir)
     diagram_images, errors = generator.generate_images([diagram], temp_output_dir)
     output = log_output.getvalue()
 
@@ -216,7 +223,7 @@ def test_generate_images_cleanup(temp_output_dir: Path) -> None:
         original_text="```mermaid\ngraph TD\nA-->B\n```",
     )
 
-    generator = ImageGenerator()
+    generator = ImageGenerator(output_dir=temp_output_dir)
     success, error, image_path = generator.generate_image(diagram, temp_output_dir)
     assert success
     assert error is None

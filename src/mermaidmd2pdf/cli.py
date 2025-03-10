@@ -116,10 +116,19 @@ def generate_diagram_images(
     Raises:
         click.ClickException: If image generation fails
     """
-    image_generator = ImageGenerator(cache_dir=temp_dir)
-    diagram_images, errors = image_generator.generate_images(diagrams, input_dir)
+    # Create temporary directory if not provided
+    if temp_dir is None:
+        temp_dir = input_dir / ".mermaid_temp"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+
+    image_generator = ImageGenerator(output_dir=temp_dir, cache_dir=temp_dir)
+    diagram_images, errors = image_generator.generate_images(diagrams, temp_dir)
+
     if errors:
-        raise click.ClickException(f"Failed to generate images: {'; '.join(errors)}")
+        raise click.ClickException(
+            "Failed to generate images:\n  • " + "\n  • ".join(errors)
+        )
+
     return diagram_images
 
 

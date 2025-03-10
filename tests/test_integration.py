@@ -4,9 +4,8 @@ from pathlib import Path
 
 import pytest
 
-from mermaidmd2pdf.cli import main
 from mermaidmd2pdf.dependencies import DependencyChecker
-from mermaidmd2pdf.generator import ImageGenerator
+from mermaidmd2pdf.generator import ImageGenerator, PDFGenerator
 from mermaidmd2pdf.processor import MermaidProcessor
 from mermaidmd2pdf.validator import FileValidator
 
@@ -66,16 +65,16 @@ def test_workflow_with_single_diagram(
     assert len(diagrams) == EXPECTED_SINGLE_DIAGRAM_COUNT
 
     # Generate images
-    image_generator = ImageGenerator()
+    image_generator = ImageGenerator(output_dir=temp_output_dir)
     diagram_images, errors = image_generator.generate_images(diagrams, temp_output_dir)
-    assert not errors
+    assert not errors, f"Image generation failed: {'; '.join(errors)}"
     assert len(diagram_images) == EXPECTED_SINGLE_DIAGRAM_COUNT
 
     # Create PDF
-    success = main.callback(
-        str(sample_markdown), str(output_file), theme="light", debug=False
+    success, error = PDFGenerator.generate_pdf(
+        markdown_text, diagram_images, output_file, title="Test Document"
     )
-    assert success is None  # Click commands return None on success
+    assert success, f"PDF generation failed: {error}"
     assert output_file.exists()
 
 
@@ -131,16 +130,16 @@ Final text.
     assert len(diagrams) == EXPECTED_MULTIPLE_DIAGRAM_COUNT
 
     # Generate images
-    image_generator = ImageGenerator()
+    image_generator = ImageGenerator(output_dir=temp_output_dir)
     diagram_images, errors = image_generator.generate_images(diagrams, temp_output_dir)
-    assert not errors, f"Failed to generate images: {'; '.join(errors)}"
+    assert not errors, f"Image generation failed: {'; '.join(errors)}"
     assert len(diagram_images) == EXPECTED_MULTIPLE_DIAGRAM_COUNT
 
     # Create PDF
-    success = main.callback(
-        str(markdown_file), str(output_file), theme="light", debug=False
+    success, error = PDFGenerator.generate_pdf(
+        processed_text, diagram_images, output_file, title="Test Document"
     )
-    assert success is None  # Click commands return None on success
+    assert success, f"PDF generation failed: {error}"
     assert output_file.exists()
 
 
@@ -173,12 +172,15 @@ Just some regular markdown text.
 
     # Process markdown and extract diagrams
     processor = MermaidProcessor()
+    processed_text, errors = processor.process_markdown(markdown_text)
+    assert not errors, f"Markdown processing failed: {'; '.join(errors)}"
+
     diagrams = processor.extract_diagrams(markdown_text)
     assert len(diagrams) == EXPECTED_ERROR_COUNT
 
-    # Create PDF
-    success = main.callback(
-        str(markdown_file), str(output_file), theme="light", debug=False
+    # Create PDF with no diagrams
+    success, error = PDFGenerator.generate_pdf(
+        processed_text, {}, output_file, title="Test Document"
     )
-    assert success is None  # Click commands return None on success
+    assert success, f"PDF generation failed: {error}"
     assert output_file.exists()

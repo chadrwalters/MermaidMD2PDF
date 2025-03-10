@@ -24,20 +24,31 @@ class ImageGenerator:
     identical diagrams and supports concurrent generation of multiple diagrams.
     """
 
-    def __init__(self, cache_dir: Optional[Path] = None) -> None:
+    def __init__(self, output_dir: Path, cache_dir: Optional[Path] = None) -> None:
         """Initialize the image generator.
 
-        Sets up the caching system for generated images. The cache helps avoid
-        regenerating identical diagrams, significantly improving performance
-        for documents with repeated diagrams.
-
         Args:
+            output_dir: Directory to save generated images
             cache_dir: Optional directory to cache generated images.
                      If None, uses a '.mermaid_cache' directory in the user's home.
         """
+        self.output_dir = output_dir
         self.cache_dir = cache_dir or Path.home() / ".mermaid_cache"
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         logger.debug(f"Using cache directory: {self.cache_dir}")
+        self.config = {
+            "args": [
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--allow-file-access-from-files",
+            ],
+            "executablePath": (
+                "/usr/bin/chromium-browser"
+                if os.path.exists("/usr/bin/chromium-browser")
+                else None
+            ),
+            "headless": "new",
+        }
 
     def _get_cache_key(self, diagram: MermaidDiagram) -> str:
         """Generate a cache key for a diagram.
@@ -62,21 +73,16 @@ class ImageGenerator:
         combined = f"{content}|{config}"
         return hashlib.sha256(combined.encode()).hexdigest()
 
-    def _get_cached_image(self, diagram: MermaidDiagram) -> Optional[Path]:
-        """Get a cached image for a diagram if it exists.
-
-        Checks if a previously generated image exists in the cache.
-        The cache lookup is based on a hash of the diagram content
-        and configuration.
+    def _get_cached_image(self, cache_key: str) -> Optional[Path]:
+        """Get a cached image if it exists.
 
         Args:
-            diagram: The Mermaid diagram to look up
+            cache_key: The cache key to look up
 
         Returns:
             Path to the cached image if it exists, None otherwise
         """
-        cache_key = self._get_cache_key(diagram)
-        cached_path = self.cache_dir / f"{cache_key}.png"
+        cached_path = self.cache_dir / cache_key
         return cached_path if cached_path.exists() else None
 
     def _cache_image(self, diagram: MermaidDiagram, image_path: Path) -> Path:
@@ -134,9 +140,11 @@ class ImageGenerator:
                 "--disable-setuid-sandbox",
                 "--allow-file-access-from-files",
             ],
-            "executablePath": "/usr/bin/chromium-browser"
-            if os.path.exists("/usr/bin/chromium-browser")
-            else None,
+            "executablePath": (
+                "/usr/bin/chromium-browser"
+                if os.path.exists("/usr/bin/chromium-browser")
+                else None
+            ),
             "headless": "new",
         }
 
@@ -197,7 +205,7 @@ class ImageGenerator:
             return False, error, None
 
         # Check cache for performance optimization
-        cached_image = self._get_cached_image(diagram)
+        cached_image = self._get_cached_image(self._get_cache_key(diagram))
         if cached_image:
             logger.debug(f"Using cached image for diagram: {cached_image}")
             return True, None, cached_image

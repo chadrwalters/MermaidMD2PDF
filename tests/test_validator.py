@@ -3,18 +3,19 @@
 import os
 import pathlib
 import tempfile
-from collections.abc import Generator
+from pathlib import Path
 
 import pytest
 
+from mermaidmd2pdf.typing import PathGenerator
 from mermaidmd2pdf.validator import FileValidator
 
 
 @pytest.fixture
-def temp_dir() -> Generator[pathlib.Path, None, None]:
+def temp_dir() -> PathGenerator:
     """Create a temporary directory for testing."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        yield pathlib.Path(temp_dir)
+        yield Path(temp_dir)
 
 
 def test_validate_input_file_valid_markdown(temp_dir: pathlib.Path) -> None:

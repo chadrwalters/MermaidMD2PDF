@@ -2,10 +2,10 @@
 
 import tempfile
 import time
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, List, Tuple, TypeVar
 
 import psutil
 import pytest
@@ -14,6 +14,7 @@ from mermaidmd2pdf.cli import main
 from mermaidmd2pdf.dependencies import DependencyChecker
 from mermaidmd2pdf.generator import ImageGenerator, PDFGenerator
 from mermaidmd2pdf.processor import MermaidProcessor
+from mermaidmd2pdf.typing import PathGenerator
 from mermaidmd2pdf.validator import FileValidator
 
 # Test data
@@ -131,10 +132,10 @@ CONCURRENT_FILE_COUNT = 5
 
 
 @pytest.fixture
-def temp_dir() -> Generator[Path, None, None]:
-    """Create a temporary directory for test files."""
-    with tempfile.TemporaryDirectory() as tmp_dir:
-        yield Path(tmp_dir)
+def temp_dir() -> PathGenerator:
+    """Create a temporary directory for testing."""
+    with tempfile.TemporaryDirectory() as temp_dir:
+        yield Path(temp_dir)
 
 
 def get_memory_usage() -> float:
@@ -145,10 +146,10 @@ def get_memory_usage() -> float:
 
 def measure_execution_time(
     func: Callable[..., T],
-) -> Callable[..., tuple[T, float, float]]:
+) -> Callable[..., Tuple[T, float, float]]:
     """Decorator to measure execution time of a function."""
 
-    def wrapper(*args: Any, **kwargs: Any) -> tuple[T, float, float]:
+    def wrapper(*args: Any, **kwargs: Any) -> Tuple[T, float, float]:
         start_time = time.time()
         start_memory = get_memory_usage()
         result = func(*args, **kwargs)
@@ -190,7 +191,7 @@ def process_document(input_path: Path, output_path: Path) -> Path:
         temp_path = Path(temp_dir)
 
         # Generate images for diagrams
-        image_generator = ImageGenerator()
+        image_generator = ImageGenerator(output_dir=temp_path)
         diagram_images, errors = image_generator.generate_images(diagrams, temp_path)
         if errors:
             raise ValueError(f"Failed to generate images: {'; '.join(errors)}")
@@ -264,7 +265,7 @@ def test_concurrent_processing(temp_dir: Path) -> None:
     for filename, content in documents:
         (temp_dir / filename).write_text(content)
 
-    def process_single_doc(filename: str) -> tuple[Path, float, float]:
+    def process_single_doc(filename: str) -> Tuple[Path, float, float]:
         input_path = temp_dir / filename
         output_path = temp_dir / f"{filename.replace('.md', '.pdf')}"
         return process_document(input_path, output_path)
@@ -352,22 +353,23 @@ def test_performance_with_large_file(
     assert len(diagrams) == DIAGRAM_COUNT
 
     # Generate images
-    image_generator = ImageGenerator()
-    diagram_images = image_generator.generate_images(diagrams, temp_output_dir)
+    image_generator = ImageGenerator(output_dir=temp_output_dir)
+    diagram_images, errors = image_generator.generate_images(diagrams, temp_output_dir)
+    assert not errors, f"Image generation failed: {'; '.join(errors)}"
     assert len(diagram_images) == DIAGRAM_COUNT
 
     # Create PDF
-    success = main.main(
-        [str(large_markdown_file), str(output_file)], standalone_mode=False
+    success, error = PDFGenerator.generate_pdf(
+        markdown_text, diagram_images, output_file, title="Test Document"
     )
-    assert success is None  # Click commands return None on success
+    assert success, f"PDF generation failed: {error}"
     assert output_file.exists()
 
 
 def test_performance_with_concurrent_requests(temp_output_dir: Path) -> None:
     """Test performance with concurrent processing of multiple files."""
     # Create multiple input files
-    input_files: list[Path] = []
+    input_files: List[Path] = []
     for i in range(CONCURRENT_FILE_COUNT):
         markdown_file = temp_output_dir / f"test_{i}.md"
         content = [
